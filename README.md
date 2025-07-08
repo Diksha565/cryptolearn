@@ -280,7 +280,7 @@ For detailed API documentation, visit: http://localhost:5000 when the backend is
 
 1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/Diksha565/cryptolearn.git
    cd cryptolearn
    ```
 
@@ -367,22 +367,8 @@ For detailed API documentation, visit: http://localhost:5000 when the backend is
 - **Git conflicts**: Use `git status` to identify conflicted files and resolve manually
 - **Environment variables not loaded**: Restart development servers after changing `.env` files
 
-### Getting Help
 
-1. **Check the issues** on GitHub for similar problems
-2. **Search the documentation** in backend/README.md for API-specific issues
-3. **Create a new issue** with detailed description and error logs
-
-## 📄 License
-
-[Add your license information here]
-
-## 👥 Contributors
-
-[Add contributor information here]
-
----
 
 **Happy Coding! 🚀**
 
-For more detailed backend API documentation, see [`backend/README.md`](./backend/README.md)
+
