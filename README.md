@@ -23,15 +23,18 @@ CryptoLearn is an educational platform that combines theoretical cryptography le
 ## ✨ Features
 
 ### 🔐 Cryptographic Algorithms
+
 - **AES Encryption**: ECB and CBC modes with 128/192/256-bit keys
 - **RSA Encryption**: Key generation, encryption/decryption, digital signatures
 - **ECC**: Elliptic Curve Cryptography with ECDSA signatures and ECDH key exchange
 
 ### 🖼️ Image Processing
+
 - **Steganography**: LSB-based message hiding in images
 - **Digital Watermarking**: Visible and invisible watermarks
 
 ### 📚 Educational Content
+
 - Interactive tutorials and explanations
 - Step-by-step algorithm walkthroughs
 - Visual demonstrations with animations
@@ -39,12 +42,14 @@ CryptoLearn is an educational platform that combines theoretical cryptography le
 ## 🛠️ Tech Stack
 
 ### Frontend
+
 - **Framework**: Next.js 14 (React)
 - **Styling**: Tailwind CSS + shadcn/ui components
 - **Language**: TypeScript
 - **State Management**: React Hooks
 
 ### Backend
+
 - **Framework**: Flask (Python)
 - **Cryptography**: cryptography library, pycryptodome
 - **Image Processing**: Pillow, OpenCV
@@ -53,18 +58,21 @@ CryptoLearn is an educational platform that combines theoretical cryptography le
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - **Node.js** (v18 or higher)
 - **Python** (3.8 or higher)
 - **npm/yarn/pnpm** for frontend dependencies
 - **pip** for Python dependencies
 
 ### 1. Clone the Repository
+
 ```bash
 git clone https://github.com/Diksha565/cryptolearn.git
 cd cryptolearn
 ```
 
 ### 2. Backend Setup
+
 ```bash
 cd backend
 
@@ -81,9 +89,11 @@ pip install -r requirements.txt
 # Run the backend server
 python app.py
 ```
+
 **Backend will run on:** http://localhost:5000
 
 ### 3. Frontend Setup
+
 ```bash
 cd frontend
 
@@ -101,6 +111,7 @@ yarn dev
 # or
 pnpm dev
 ```
+
 **Frontend will run on:** http://localhost:3000
 
 ## 📁 Project Structure
@@ -159,8 +170,7 @@ cryptolearn/
     │   ├── ecc/                # ECC page
     │   ├── digital-signature/  # Digital signature page
     │   ├── steganography/      # Steganography page
-    │   ├── watermarking/       # Watermarking page
-    │   └── learn/              # Educational content pages
+    │   └── watermarking/       # Watermarking page
     │
     ├── components/             # Reusable React components
     │   ├── ui/                 # shadcn/ui components
@@ -179,12 +189,14 @@ cryptolearn/
 ### Environment Variables
 
 Create `.env.local` in the `frontend` directory:
+
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000
 NEXT_PUBLIC_APP_NAME=CryptoLearn
 ```
 
 Create `.env` in the `backend` directory:
+
 ```env
 FLASK_ENV=development
 FLASK_DEBUG=True
@@ -194,6 +206,7 @@ MAX_CONTENT_LENGTH=16777216
 ```
 
 ### Database Setup (if applicable)
+
 ```bash
 # If using a database, add setup instructions here
 cd backend
@@ -209,23 +222,28 @@ The backend provides RESTful API endpoints for all cryptographic operations:
 ### Available Endpoints:
 
 #### AES Encryption
+
 - `POST /aes/encrypt` - Encrypt data using AES
 - `POST /aes/decrypt` - Decrypt AES-encrypted data
 
 #### RSA Encryption
+
 - `POST /rsa/generate-keys` - Generate RSA key pair
 - `POST /rsa/encrypt` - Encrypt data using RSA
 - `POST /rsa/decrypt` - Decrypt RSA-encrypted data
 
 #### Digital Signatures
+
 - `POST /signature/sign` - Create digital signature
 - `POST /signature/verify` - Verify digital signature
 
 #### Steganography
+
 - `POST /steganography/hide` - Hide message in image
 - `POST /steganography/extract` - Extract message from image
 
 #### Watermarking
+
 - `POST /watermark/add` - Add watermark to image
 - `POST /watermark/detect` - Detect watermark in image
 
@@ -237,6 +255,7 @@ For detailed API documentation, visit: http://localhost:5000 when the backend is
 
 1. **Fork the repository** (if external contributor)
 2. **Create a new branch** from main:
+
    ```bash
    git checkout -b feature/your-feature-name
    # or
@@ -248,12 +267,14 @@ For detailed API documentation, visit: http://localhost:5000 when the backend is
 4. **Make your changes** and test thoroughly
 
 5. **Commit your changes**:
+
    ```bash
    git add .
    git commit -m "Add: your descriptive commit message"
    ```
 
 6. **Push to your branch**:
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -263,12 +284,14 @@ For detailed API documentation, visit: http://localhost:5000 when the backend is
 ### Code Style Guidelines
 
 #### Frontend (TypeScript/React)
+
 - Use TypeScript for all new code
 - Follow React functional component patterns
 - Use Tailwind CSS for styling
 - Implement proper error handling
 
 #### Backend (Python/Flask)
+
 - Follow PEP 8 style guidelines
 - Use type hints where appropriate
 - Implement proper error handling and logging
@@ -279,16 +302,18 @@ For detailed API documentation, visit: http://localhost:5000 when the backend is
 ### First Time Setup
 
 1. **Clone the repository**:
+
    ```bash
    git clone <repository-url>
    cd cryptolearn
    ```
 
 2. **Set up Python virtual environment**:
+
    ```bash
    # Create virtual environment
    python -m venv venv
-   
+
    # Activate it
    # Windows:
    venv\\Scripts\\activate
@@ -297,12 +322,14 @@ For detailed API documentation, visit: http://localhost:5000 when the backend is
    ```
 
 3. **Install backend dependencies**:
+
    ```bash
    cd backend
    pip install -r requirements.txt
    ```
 
 4. **Install frontend dependencies**:
+
    ```bash
    cd ../frontend
    npm install
@@ -311,11 +338,12 @@ For detailed API documentation, visit: http://localhost:5000 when the backend is
 5. **Set up environment variables** (see Environment Configuration section)
 
 6. **Test the setup**:
+
    ```bash
    # Terminal 1 - Backend
    cd backend
    python app.py
-   
+
    # Terminal 2 - Frontend
    cd frontend
    npm run dev
@@ -324,6 +352,7 @@ For detailed API documentation, visit: http://localhost:5000 when the backend is
 ### Working on Your Branch
 
 1. **Always pull the latest changes** before starting work:
+
    ```bash
    git checkout main
    git pull origin main
@@ -332,17 +361,19 @@ For detailed API documentation, visit: http://localhost:5000 when the backend is
    ```
 
 2. **Keep your branch updated** regularly:
+
    ```bash
    git fetch origin
    git merge origin/main
    ```
 
 3. **Test your changes** before committing:
+
    ```bash
    # Test backend
    cd backend
    python -m pytest tests/  # if tests exist
-   
+
    # Test frontend
    cd frontend
    npm run build
@@ -354,16 +385,19 @@ For detailed API documentation, visit: http://localhost:5000 when the backend is
 ### Common Issues
 
 #### Backend Issues
+
 - **"Module not found" errors**: Ensure virtual environment is activated and dependencies are installed
 - **Port 5000 already in use**: Kill existing processes or change port in `app.py`
 - **CORS errors**: Check CORS configuration in Flask app
 
 #### Frontend Issues
+
 - **"Command not found" errors**: Ensure Node.js and npm are properly installed
 - **Port 3000 already in use**: Use different port: `npm run dev -- --port 3001`
 - **API connection errors**: Verify backend is running and `NEXT_PUBLIC_API_URL` is correct
 
 #### General Issues
+
 - **Git conflicts**: Use `git status` to identify conflicted files and resolve manually
 - **Environment variables not loaded**: Restart development servers after changing `.env` files
 

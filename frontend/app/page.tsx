@@ -227,7 +227,7 @@ export default function HomePage() {
         <div className="container mx-auto px-6 py-8">
           <div className="flex items-center justify-center">
             <p className="text-sm text-muted-foreground">
-              © 2024 CryptoLearn. Built for educational purposes.
+              © 2025 CryptoLearn. Built for educational purposes.
             </p>
           </div>
         </div>

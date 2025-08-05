@@ -138,10 +138,30 @@ export const rsaAPI = {
 
 // ECC API functions
 export const eccAPI = {
+  // ECDSA Key Generation
   generateKeypair: async (curve = 'secp256r1') => {
     return apiCall<ApiResponse>('/ecc/generate-keypair', 'POST', { curve })
   },
 
+  // ECDH Key Generation
+  generateECDHKeypair: async (curve = 'brainpoolP256r1') => {
+    return apiCall<ApiResponse>('/ecc/generate-ecdh-keypair', 'POST', { curve })
+  },
+
+  // ECDH Shared Secret Calculation
+  ecdhSharedSecret: async (data: {
+    private_key_a: string
+    public_key_b_x: string
+    public_key_b_y: string
+    curve?: string
+  }) => {
+    return apiCall<ApiResponse>('/ecc/ecdh-shared-secret', 'POST', {
+      ...data,
+      curve: data.curve || 'brainpoolP256r1'
+    })
+  },
+
+  // ECDSA Signing
   sign: async (data: {
     message: string
     private_key: string
@@ -149,6 +169,7 @@ export const eccAPI = {
     return apiCall<ApiResponse>('/ecc/sign', 'POST', data)
   },
 
+  // ECDSA Verification
   verify: async (data: {
     message: string
     signature: string
@@ -157,11 +178,14 @@ export const eccAPI = {
     return apiCall<ApiResponse>('/ecc/verify', 'POST', data)
   },
 
-  generateSharedSecret: async (data: {
-    private_key: string
-    public_key: string
-  }) => {
-    return apiCall<ApiResponse>('/ecc/shared-secret', 'POST', data)
+  // Get Curve Information
+  getCurveInfo: async (curve = 'brainpoolP256r1') => {
+    return apiCall<ApiResponse>('/ecc/curve-info', 'POST', { curve })
+  },
+
+  // Compare ECC with RSA
+  compareWithRSA: async (eccKeySize: number) => {
+    return apiCall<ApiResponse>('/ecc/compare-rsa', 'POST', { ecc_key_size: eccKeySize })
   },
 
   getInfo: async () => {
@@ -183,6 +207,7 @@ export const signatureAPI = {
     message: string
     private_key: string
     algorithm?: string
+    hash_algorithm?: string
   }) => {
     return apiCall<ApiResponse>('/signature/sign', 'POST', data)
   },
@@ -192,6 +217,7 @@ export const signatureAPI = {
     signature: string
     public_key: string
     algorithm?: string
+    hash_algorithm?: string
   }) => {
     return apiCall<ApiResponse>('/signature/verify', 'POST', data)
   },
