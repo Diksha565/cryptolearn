@@ -39,7 +39,7 @@ const dsaSteps: DSAStep[] = [
     title: "Original Message (M)",
     description: "Start with the plaintext message that needs to be signed",
     formula: "M = Original Message",
-    example: "M = \"Hello, this is a secure message\"",
+    example: 'M = "Hello, this is a secure message"',
     icon: FileText,
     color: "bg-blue-500",
     step: "Step 1",
@@ -49,7 +49,7 @@ const dsaSteps: DSAStep[] = [
     title: "Hash Function (H)",
     description: "Apply cryptographic hash function to create message digest",
     formula: "h = H(M)",
-    example: "h = SHA-256(M) = \"a1b2c3d4...\"",
+    example: 'h = SHA-256(M) = "a1b2c3d4..."',
     icon: Hash,
     color: "bg-green-500",
     step: "Step 2",
@@ -99,7 +99,7 @@ const dsaSteps: DSAStep[] = [
     title: "Extract Message & Hash",
     description: "Separate the original message and hash digest",
     formula: "M', h' = Extract(Decrypted)",
-    example: "Message' = \"Hello, this...\", Hash' = \"a1b2c3d4...\"",
+    example: 'Message\' = "Hello, this...", Hash\' = "a1b2c3d4..."',
     icon: Shield,
     color: "bg-emerald-500",
     step: "Step 7",
@@ -109,7 +109,7 @@ const dsaSteps: DSAStep[] = [
     title: "Re-compute Hash",
     description: "Apply same hash function to extracted message",
     formula: "h_new = H(M')",
-    example: "h_new = SHA-256(Message') = \"a1b2c3d4...\"",
+    example: 'h_new = SHA-256(Message\') = "a1b2c3d4..."',
     icon: Hash,
     color: "bg-teal-500",
     step: "Step 8",
@@ -251,7 +251,9 @@ export function DSAWalkthrough() {
               <Button
                 key={step.id}
                 onClick={() => handleStepClick(index)}
-                variant={isActive ? "default" : isPassed ? "secondary" : "outline"}
+                variant={
+                  isActive ? "default" : isPassed ? "secondary" : "outline"
+                }
                 className={`
                   relative p-2 h-auto flex flex-col items-center gap-1
                   ${isActive ? "ring-2 ring-primary" : ""}
@@ -346,7 +348,11 @@ export function DSAWalkthrough() {
                 <span
                   className={`
                     px-2 py-1 rounded font-medium
-                    ${index === currentStep ? "bg-primary text-primary-foreground" : "bg-background"}
+                    ${
+                      index === currentStep
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background"
+                    }
                   `}
                 >
                   {step.title}
@@ -381,8 +387,8 @@ export function DSAWalkthrough() {
               </span>
             </div>
             <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-              The message has been successfully signed and verified, ensuring authentication, 
-              integrity, and non-repudiation.
+              The message has been successfully signed and verified, ensuring
+              authentication, integrity, and non-repudiation.
             </p>
           </motion.div>
         )}

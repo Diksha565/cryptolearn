@@ -25,16 +25,16 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { 
-  Loader2, 
-  Key, 
-  FileSignature, 
-  ShieldCheck, 
-  Zap, 
+import {
+  Loader2,
+  Key,
+  FileSignature,
+  ShieldCheck,
+  Zap,
   Info,
   CheckCircle,
   XCircle,
-  AlertTriangle
+  AlertTriangle,
 } from "lucide-react";
 import { signatureAPI } from "@/lib/api";
 import { DSAWalkthrough } from "@/components/dsa-walkthrough";
@@ -112,7 +112,7 @@ export default function DigitalSignaturePage() {
 
     try {
       let response;
-      
+
       if (keygenData.algorithm === "RSA") {
         response = await signatureAPI.generateKeypair({
           algorithm: "RSA",
@@ -130,9 +130,14 @@ export default function DigitalSignaturePage() {
         setResult(formattedResult);
         setMetadata({
           Algorithm: keygenData.algorithm,
-          "Key Size": keygenData.algorithm === "RSA" ? `${keygenData.keySize} bits` : keygenData.curve,
+          "Key Size":
+            keygenData.algorithm === "RSA"
+              ? `${keygenData.keySize} bits`
+              : keygenData.curve,
           "Key Type": "Asymmetric",
-          "Private Key Length": `${response.private_key?.length || 0} characters`,
+          "Private Key Length": `${
+            response.private_key?.length || 0
+          } characters`,
           "Public Key Length": `${response.public_key?.length || 0} characters`,
           Purpose: "Digital Signature",
         });
@@ -169,7 +174,9 @@ export default function DigitalSignaturePage() {
           Algorithm: signData.algorithm,
           Operation: "Digital Signature Creation",
           "Message Length": `${signData.message.length} characters`,
-          "Signature Algorithm": response.signature_algorithm || `${signData.algorithm} with ${signData.hashAlgorithm}`,
+          "Signature Algorithm":
+            response.signature_algorithm ||
+            `${signData.algorithm} with ${signData.hashAlgorithm}`,
           "Hash Algorithm": signData.hashAlgorithm,
         });
       } else {
@@ -211,7 +218,9 @@ export default function DigitalSignaturePage() {
           Result: isValid ? "Valid" : "Invalid",
           "Message Length": `${verifyData.message.length} characters`,
           "Hash Algorithm": verifyData.hashAlgorithm,
-          "Verification Status": isValid ? "Authentic & Unmodified" : "Invalid or Tampered",
+          "Verification Status": isValid
+            ? "Authentic & Unmodified"
+            : "Invalid or Tampered",
         });
       } else {
         setError(response.error || "Verification failed");
@@ -247,29 +256,44 @@ export default function DigitalSignaturePage() {
       const response = await signatureAPI.signAndVerify(requestData);
 
       if (response.success) {
-        const formattedResult = `COMPLETE DIGITAL SIGNATURE DEMONSTRATION\n\n` +
+        const formattedResult =
+          `COMPLETE DIGITAL SIGNATURE DEMONSTRATION\n\n` +
           `Message: "${response.original_message}"\n\n` +
           `Generated Keys:\n` +
           `Private Key: ${response.private_key}\n\n` +
           `Public Key: ${response.public_key}\n\n` +
           `Digital Signature: ${response.signature}\n\n` +
-          `Verification Result: ${response.verification_result ? "VALID ✓" : "INVALID ✗"}\n\n` +
-          `Proof of Integrity: ${response.verification_result ? "Message is authentic and unmodified" : "Message may have been tampered with"}`;
-        
+          `Verification Result: ${
+            response.verification_result ? "VALID ✓" : "INVALID ✗"
+          }\n\n` +
+          `Proof of Integrity: ${
+            response.verification_result
+              ? "Message is authentic and unmodified"
+              : "Message may have been tampered with"
+          }`;
+
         setResult(formattedResult);
         setMetadata({
           Algorithm: signAndVerifyData.algorithm,
           Operation: "Complete Sign & Verify Demo",
           "Key Generation": "Successful",
           "Message Signing": "Successful",
-          "Signature Verification": response.verification_result ? "Valid" : "Invalid",
-          "Security Level": signAndVerifyData.algorithm === "RSA" ? `${signAndVerifyData.keySize} bits` : signAndVerifyData.curve,
+          "Signature Verification": response.verification_result
+            ? "Valid"
+            : "Invalid",
+          "Security Level":
+            signAndVerifyData.algorithm === "RSA"
+              ? `${signAndVerifyData.keySize} bits`
+              : signAndVerifyData.curve,
         });
       } else {
         setError(response.error || "Sign and verify operation failed");
       }
     } catch (error: any) {
-      setError(error.message || "An error occurred during the sign and verify operation");
+      setError(
+        error.message ||
+          "An error occurred during the sign and verify operation"
+      );
     } finally {
       setIsLoading(false);
     }
@@ -334,11 +358,16 @@ export default function DigitalSignaturePage() {
                 Digital Signature Operations
               </CardTitle>
               <CardDescription>
-                Generate keys, create signatures, and verify document authenticity
+                Generate keys, create signatures, and verify document
+                authenticity
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className="w-full"
+              >
                 <TabsList className="grid w-full grid-cols-5">
                   <TabsTrigger value="keygen" className="text-xs">
                     <Key className="h-3 w-3 mr-1" />
@@ -390,7 +419,10 @@ export default function DigitalSignaturePage() {
                       <Select
                         value={keygenData.keySize.toString()}
                         onValueChange={(value) =>
-                          setKeygenData((prev) => ({ ...prev, keySize: parseInt(value) }))
+                          setKeygenData((prev) => ({
+                            ...prev,
+                            keySize: parseInt(value),
+                          }))
                         }
                       >
                         <SelectTrigger>
@@ -398,7 +430,10 @@ export default function DigitalSignaturePage() {
                         </SelectTrigger>
                         <SelectContent>
                           {keySizes.map((size) => (
-                            <SelectItem key={size.value} value={size.value.toString()}>
+                            <SelectItem
+                              key={size.value}
+                              value={size.value.toString()}
+                            >
                               {size.label}
                             </SelectItem>
                           ))}
@@ -469,7 +504,10 @@ export default function DigitalSignaturePage() {
                     <Select
                       value={signData.hashAlgorithm}
                       onValueChange={(value) =>
-                        setSignData((prev) => ({ ...prev, hashAlgorithm: value }))
+                        setSignData((prev) => ({
+                          ...prev,
+                          hashAlgorithm: value,
+                        }))
                       }
                     >
                       <SelectTrigger>
@@ -486,26 +524,36 @@ export default function DigitalSignaturePage() {
                   </div>
 
                   <div>
-                    <Label htmlFor="signMessage">Message/Document to Sign</Label>
+                    <Label htmlFor="signMessage">
+                      Message/Document to Sign
+                    </Label>
                     <Textarea
                       id="signMessage"
                       placeholder="Enter the message or document content to sign..."
                       value={signData.message}
                       onChange={(e) =>
-                        setSignData((prev) => ({ ...prev, message: e.target.value }))
+                        setSignData((prev) => ({
+                          ...prev,
+                          message: e.target.value,
+                        }))
                       }
                       rows={4}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="signPrivateKey">Private Key (PEM format)</Label>
+                    <Label htmlFor="signPrivateKey">
+                      Private Key (PEM format)
+                    </Label>
                     <Textarea
                       id="signPrivateKey"
                       placeholder="Enter your private key in PEM format..."
                       value={signData.privateKey}
                       onChange={(e) =>
-                        setSignData((prev) => ({ ...prev, privateKey: e.target.value }))
+                        setSignData((prev) => ({
+                          ...prev,
+                          privateKey: e.target.value,
+                        }))
                       }
                       rows={6}
                     />
@@ -552,7 +600,10 @@ export default function DigitalSignaturePage() {
                     <Select
                       value={verifyData.hashAlgorithm}
                       onValueChange={(value) =>
-                        setVerifyData((prev) => ({ ...prev, hashAlgorithm: value }))
+                        setVerifyData((prev) => ({
+                          ...prev,
+                          hashAlgorithm: value,
+                        }))
                       }
                     >
                       <SelectTrigger>
@@ -569,13 +620,18 @@ export default function DigitalSignaturePage() {
                   </div>
 
                   <div>
-                    <Label htmlFor="verifyMessage">Original Message/Document</Label>
+                    <Label htmlFor="verifyMessage">
+                      Original Message/Document
+                    </Label>
                     <Textarea
                       id="verifyMessage"
                       placeholder="Enter the original message or document content..."
                       value={verifyData.message}
                       onChange={(e) =>
-                        setVerifyData((prev) => ({ ...prev, message: e.target.value }))
+                        setVerifyData((prev) => ({
+                          ...prev,
+                          message: e.target.value,
+                        }))
                       }
                       rows={4}
                     />
@@ -588,20 +644,28 @@ export default function DigitalSignaturePage() {
                       placeholder="Enter the digital signature to verify..."
                       value={verifyData.signature}
                       onChange={(e) =>
-                        setVerifyData((prev) => ({ ...prev, signature: e.target.value }))
+                        setVerifyData((prev) => ({
+                          ...prev,
+                          signature: e.target.value,
+                        }))
                       }
                       rows={4}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="verifyPublicKey">Public Key (PEM format)</Label>
+                    <Label htmlFor="verifyPublicKey">
+                      Public Key (PEM format)
+                    </Label>
                     <Textarea
                       id="verifyPublicKey"
                       placeholder="Enter the signer's public key in PEM format..."
                       value={verifyData.publicKey}
                       onChange={(e) =>
-                        setVerifyData((prev) => ({ ...prev, publicKey: e.target.value }))
+                        setVerifyData((prev) => ({
+                          ...prev,
+                          publicKey: e.target.value,
+                        }))
                       }
                       rows={6}
                     />
@@ -625,10 +689,13 @@ export default function DigitalSignaturePage() {
                   <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border">
                     <div className="flex items-center gap-2 mb-2">
                       <Info className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-600">Complete Demo</span>
+                      <span className="text-sm font-medium text-blue-600">
+                        Complete Demo
+                      </span>
                     </div>
                     <p className="text-sm text-blue-700 dark:text-blue-300">
-                      This will generate keys, sign your message, and verify the signature all in one operation.
+                      This will generate keys, sign your message, and verify the
+                      signature all in one operation.
                     </p>
                   </div>
 
@@ -637,7 +704,10 @@ export default function DigitalSignaturePage() {
                     <Select
                       value={signAndVerifyData.algorithm}
                       onValueChange={(value) =>
-                        setSignAndVerifyData((prev) => ({ ...prev, algorithm: value }))
+                        setSignAndVerifyData((prev) => ({
+                          ...prev,
+                          algorithm: value,
+                        }))
                       }
                     >
                       <SelectTrigger>
@@ -659,7 +729,10 @@ export default function DigitalSignaturePage() {
                       <Select
                         value={signAndVerifyData.keySize.toString()}
                         onValueChange={(value) =>
-                          setSignAndVerifyData((prev) => ({ ...prev, keySize: parseInt(value) }))
+                          setSignAndVerifyData((prev) => ({
+                            ...prev,
+                            keySize: parseInt(value),
+                          }))
                         }
                       >
                         <SelectTrigger>
@@ -667,7 +740,10 @@ export default function DigitalSignaturePage() {
                         </SelectTrigger>
                         <SelectContent>
                           {keySizes.map((size) => (
-                            <SelectItem key={size.value} value={size.value.toString()}>
+                            <SelectItem
+                              key={size.value}
+                              value={size.value.toString()}
+                            >
                               {size.label}
                             </SelectItem>
                           ))}
@@ -680,7 +756,10 @@ export default function DigitalSignaturePage() {
                       <Select
                         value={signAndVerifyData.curve}
                         onValueChange={(value) =>
-                          setSignAndVerifyData((prev) => ({ ...prev, curve: value }))
+                          setSignAndVerifyData((prev) => ({
+                            ...prev,
+                            curve: value,
+                          }))
                         }
                       >
                         <SelectTrigger>
@@ -704,7 +783,10 @@ export default function DigitalSignaturePage() {
                       placeholder="Enter a message for the complete demo..."
                       value={signAndVerifyData.message}
                       onChange={(e) =>
-                        setSignAndVerifyData((prev) => ({ ...prev, message: e.target.value }))
+                        setSignAndVerifyData((prev) => ({
+                          ...prev,
+                          message: e.target.value,
+                        }))
                       }
                       rows={4}
                     />
@@ -728,14 +810,17 @@ export default function DigitalSignaturePage() {
                   <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 rounded-lg border">
                     <div className="flex items-center gap-2 mb-2">
                       <Info className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-600">Interactive DSA Process</span>
+                      <span className="text-sm font-medium text-blue-600">
+                        Interactive DSA Process
+                      </span>
                     </div>
                     <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
-                      Learn the complete Digital Signature Algorithm (DSA) process step by step. 
-                      This interactive walkthrough shows how messages are signed with hash functions 
-                      and verified for authenticity and integrity.
+                      Learn the complete Digital Signature Algorithm (DSA)
+                      process step by step. This interactive walkthrough shows
+                      how messages are signed with hash functions and verified
+                      for authenticity and integrity.
                     </p>
-                    
+
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="bg-white dark:bg-slate-900 rounded-lg p-4 border">
                         <h4 className="font-semibold mb-2 flex items-center gap-2">
@@ -743,23 +828,47 @@ export default function DigitalSignaturePage() {
                           DSA Process Overview
                         </h4>
                         <ul className="text-sm space-y-1 text-muted-foreground">
-                          <li>• <strong>Step 1-2:</strong> Message hashing with cryptographic functions</li>
-                          <li>• <strong>Step 3-4:</strong> Bundle creation and private key signing</li>
-                          <li>• <strong>Step 5-6:</strong> Secure transmission and public key verification</li>
-                          <li>• <strong>Step 7-9:</strong> Hash comparison and integrity verification</li>
+                          <li>
+                            • <strong>Step 1-2:</strong> Message hashing with
+                            cryptographic functions
+                          </li>
+                          <li>
+                            • <strong>Step 3-4:</strong> Bundle creation and
+                            private key signing
+                          </li>
+                          <li>
+                            • <strong>Step 5-6:</strong> Secure transmission and
+                            public key verification
+                          </li>
+                          <li>
+                            • <strong>Step 7-9:</strong> Hash comparison and
+                            integrity verification
+                          </li>
                         </ul>
                       </div>
-                      
+
                       <div className="bg-white dark:bg-slate-900 rounded-lg p-4 border">
                         <h4 className="font-semibold mb-2 flex items-center gap-2">
                           <AlertTriangle className="h-4 w-4 text-amber-600" />
                           Hash Functions Role
                         </h4>
                         <ul className="text-sm space-y-1 text-muted-foreground">
-                          <li>• <strong>SHA-256:</strong> Most commonly used, 256-bit output</li>
-                          <li>• <strong>SHA-384:</strong> Higher security, 384-bit output</li>
-                          <li>• <strong>SHA-512:</strong> Maximum security, 512-bit output</li>
-                          <li>• <strong>Collision Resistance:</strong> Prevents forgery attacks</li>
+                          <li>
+                            • <strong>SHA-256:</strong> Most commonly used,
+                            256-bit output
+                          </li>
+                          <li>
+                            • <strong>SHA-384:</strong> Higher security, 384-bit
+                            output
+                          </li>
+                          <li>
+                            • <strong>SHA-512:</strong> Maximum security,
+                            512-bit output
+                          </li>
+                          <li>
+                            • <strong>Collision Resistance:</strong> Prevents
+                            forgery attacks
+                          </li>
                         </ul>
                       </div>
                     </div>
@@ -790,7 +899,8 @@ export default function DigitalSignaturePage() {
               Digital Signature Security Properties
             </CardTitle>
             <CardDescription>
-              Understanding the cryptographic guarantees provided by digital signatures
+              Understanding the cryptographic guarantees provided by digital
+              signatures
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -799,7 +909,9 @@ export default function DigitalSignaturePage() {
                 <div className="flex justify-center mb-3">
                   <CheckCircle className="h-8 w-8 text-green-600" />
                 </div>
-                <Badge variant="secondary" className="mb-2">Authentication</Badge>
+                <Badge variant="secondary" className="mb-2">
+                  Authentication
+                </Badge>
                 <p className="text-sm text-muted-foreground">
                   Verifies the identity of the signer and proves document origin
                 </p>
@@ -808,7 +920,9 @@ export default function DigitalSignaturePage() {
                 <div className="flex justify-center mb-3">
                   <ShieldCheck className="h-8 w-8 text-blue-600" />
                 </div>
-                <Badge variant="secondary" className="mb-2">Integrity</Badge>
+                <Badge variant="secondary" className="mb-2">
+                  Integrity
+                </Badge>
                 <p className="text-sm text-muted-foreground">
                   Detects any tampering or modification of the signed document
                 </p>
@@ -817,15 +931,17 @@ export default function DigitalSignaturePage() {
                 <div className="flex justify-center mb-3">
                   <XCircle className="h-8 w-8 text-purple-600" />
                 </div>
-                <Badge variant="secondary" className="mb-2">Non-Repudiation</Badge>
+                <Badge variant="secondary" className="mb-2">
+                  Non-Repudiation
+                </Badge>
                 <p className="text-sm text-muted-foreground">
                   Prevents the signer from denying that they signed the document
                 </p>
               </div>
             </div>
-            
+
             <Separator className="my-6" />
-            
+
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <h4 className="font-semibold mb-3 flex items-center gap-2">
@@ -845,7 +961,9 @@ export default function DigitalSignaturePage() {
                   Best Practices
                 </h4>
                 <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Use hardware security modules (HSMs) for high-value keys</li>
+                  <li>
+                    • Use hardware security modules (HSMs) for high-value keys
+                  </li>
                   <li>• Implement proper key rotation policies</li>
                   <li>• Add timestamps to prevent replay attacks</li>
                   <li>• Validate certificates and check revocation lists</li>

@@ -1,10 +1,278 @@
 import random
 import math
+import base64
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from .utils import create_error_response, create_success_response
 
 class RSAService:
-    """Simple RSA implementation based on mathematical algorithm"""
+    """RSA implementation for text encryption/decryption using cryptography library"""
     
+    @staticmethod
+    def generate_keypair(key_size: int = 2048):
+        """
+        Generate RSA key pair using cryptography library
+        
+        Args:
+            key_size: Key size in bits (1024, 2048, 3072, 4096)
+        
+        Returns:
+            Tuple of (result_dict, status_code)
+        """
+        try:
+            if key_size not in [1024, 2048, 3072, 4096]:
+                return create_error_response("Key size must be 1024, 2048, 3072, or 4096 bits")
+            
+            # Generate private key
+            private_key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=key_size
+            )
+            
+            # Get public key
+            public_key = private_key.public_key()
+            
+            # Serialize keys to PEM format
+            private_pem = private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption()
+            ).decode('utf-8')
+            
+            public_pem = public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            ).decode('utf-8')
+            
+            # Get key components for educational purposes
+            private_numbers = private_key.private_numbers()
+            public_numbers = private_numbers.public_numbers
+            
+            result = create_success_response({
+                "message": "RSA key pair generated successfully",
+                "private_key": private_pem,
+                "public_key": public_pem,
+                "key_size": key_size,
+                "public_exponent": public_numbers.e,
+                "modulus": public_numbers.n,
+                "private_exponent": private_numbers.d,
+                "p": private_numbers.p,
+                "q": private_numbers.q
+            })
+            
+            return result
+            
+        except Exception as e:
+            return create_error_response(f"Key generation failed: {str(e)}")
+    
+    @staticmethod
+    def encrypt_text(plaintext: str, public_key_pem: str):
+        """
+        Encrypt text using RSA public key
+        
+        Args:
+            plaintext: Text to encrypt
+            public_key_pem: PEM formatted public key
+        
+        Returns:
+            Tuple of (result_dict, status_code)
+        """
+        try:
+            if not plaintext:
+                return create_error_response("Plaintext cannot be empty")
+            
+            # Load public key
+            public_key = serialization.load_pem_public_key(public_key_pem.encode('utf-8'))
+            
+            # Check text length vs key size
+            key_size = public_key.key_size
+            max_length = (key_size // 8) - 2 * (256 // 8) - 2  # OAEP padding overhead
+            
+            if len(plaintext.encode('utf-8')) > max_length:
+                return create_error_response(f"Text too long. Maximum length for {key_size}-bit key: {max_length} bytes")
+            
+            # Encrypt using OAEP padding
+            ciphertext = public_key.encrypt(
+                plaintext.encode('utf-8'),
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+            
+            # Encode as base64 for safe transmission
+            ciphertext_b64 = base64.b64encode(ciphertext).decode('utf-8')
+            
+            result = create_success_response({
+                "message": "Text encrypted successfully",
+                "ciphertext": ciphertext_b64,
+                "original_length": len(plaintext),
+                "encrypted_length": len(ciphertext),
+                "key_size": key_size,
+                "padding": "OAEP with SHA-256"
+            })
+            
+            return result
+            
+        except Exception as e:
+            return create_error_response(f"Encryption failed: {str(e)}")
+    
+    @staticmethod
+    def decrypt_text(ciphertext_b64: str, private_key_pem: str):
+        """
+        Decrypt text using RSA private key
+        
+        Args:
+            ciphertext_b64: Base64 encoded ciphertext
+            private_key_pem: PEM formatted private key
+        
+        Returns:
+            Tuple of (result_dict, status_code)
+        """
+        try:
+            if not ciphertext_b64:
+                return create_error_response("Ciphertext cannot be empty")
+            
+            # Load private key
+            private_key = serialization.load_pem_private_key(
+                private_key_pem.encode('utf-8'),
+                password=None
+            )
+            
+            # Decode base64 ciphertext
+            try:
+                ciphertext = base64.b64decode(ciphertext_b64)
+            except Exception:
+                return create_error_response("Invalid base64 ciphertext format")
+            
+            # Decrypt using OAEP padding
+            plaintext_bytes = private_key.decrypt(
+                ciphertext,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+            
+            plaintext = plaintext_bytes.decode('utf-8')
+            
+            result = create_success_response({
+                "message": "Text decrypted successfully",
+                "plaintext": plaintext,
+                "decrypted_length": len(plaintext),
+                "key_size": private_key.key_size
+            })
+            
+            return result
+            
+        except Exception as e:
+            return create_error_response(f"Decryption failed: {str(e)}")
+    
+    @staticmethod
+    def sign(message: str, private_key_pem: str):
+        """
+        Sign a message using RSA private key
+        
+        Args:
+            message: Message to sign
+            private_key_pem: PEM formatted private key
+        
+        Returns:
+            Tuple of (result_dict, status_code)
+        """
+        try:
+            if not message:
+                return create_error_response("Message cannot be empty")
+            
+            # Load private key
+            private_key = serialization.load_pem_private_key(
+                private_key_pem.encode('utf-8'),
+                password=None
+            )
+            
+            # Sign the message
+            signature = private_key.sign(
+                message.encode('utf-8'),
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            
+            # Encode signature as base64
+            signature_b64 = base64.b64encode(signature).decode('utf-8')
+            
+            result = create_success_response({
+                "message": "Message signed successfully",
+                "signature": signature_b64,
+                "message_length": len(message),
+                "signature_algorithm": "RSA-PSS with SHA-256",
+                "hash_algorithm": "SHA-256"
+            })
+            
+            return result
+            
+        except Exception as e:
+            return create_error_response(f"Signing failed: {str(e)}")
+    
+    @staticmethod
+    def verify(message: str, signature_b64: str, public_key_pem: str):
+        """
+        Verify a signature using RSA public key
+        
+        Args:
+            message: Original message
+            signature_b64: Base64 encoded signature
+            public_key_pem: PEM formatted public key
+        
+        Returns:
+            Tuple of (result_dict, status_code)
+        """
+        try:
+            if not message or not signature_b64:
+                return create_error_response("Message and signature cannot be empty")
+            
+            # Load public key
+            public_key = serialization.load_pem_public_key(public_key_pem.encode('utf-8'))
+            
+            # Decode signature
+            try:
+                signature = base64.b64decode(signature_b64)
+            except Exception:
+                return create_error_response("Invalid base64 signature format")
+            
+            # Verify signature
+            try:
+                public_key.verify(
+                    signature,
+                    message.encode('utf-8'),
+                    padding.PSS(
+                        mgf=padding.MGF1(hashes.SHA256()),
+                        salt_length=padding.PSS.MAX_LENGTH
+                    ),
+                    hashes.SHA256()
+                )
+                is_valid = True
+            except Exception:
+                is_valid = False
+            
+            result = create_success_response({
+                "message": "Signature verification completed",
+                "valid": is_valid,
+                "message_length": len(message),
+                "signature_algorithm": "RSA-PSS with SHA-256"
+            })
+            
+            return result
+            
+        except Exception as e:
+            return create_error_response(f"Verification failed: {str(e)}")
+    
+    # Keep the old methods for backward compatibility with educational demos
     @staticmethod
     def is_prime(n, k=5):
         """Miller-Rabin primality test - much faster than trial division"""
@@ -77,211 +345,3 @@ class RSAService:
         if gcd != 1:
             raise ValueError("Modular inverse does not exist")
         return (x % phi + phi) % phi
-    
-    @staticmethod
-    def generate_keypair(key_size: int = 64):
-        """
-        Generate simple RSA key pair using basic algorithm
-        
-        Args:
-            key_size: Total key size in bits (32, 64, 128 for fast generation)
-        
-        Returns:
-            Tuple of (result_dict, status_code)
-        """
-        try:
-            if key_size not in [32, 64, 128]:
-                return create_error_response("Key size must be 32, 64, or 128 bits for fast simple RSA")
-            
-            # For very fast demo generation, use predefined small primes
-            if key_size <= 64:
-                # Use very small primes for demo
-                small_primes = [61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251]
-                p = random.choice(small_primes)
-                q = random.choice(small_primes)
-                # Make sure p and q are different
-                while p == q:
-                    q = random.choice(small_primes)
-            else:
-                # Step 1: Generate two prime numbers p and q
-                # Use smaller bit sizes for faster generation
-                p_bits = 6  # Much smaller primes
-                q_bits = 6
-                
-                p = RSAService.generate_prime(p_bits)
-                q = RSAService.generate_prime(q_bits)
-                
-                # Make sure p and q are different
-                while p == q:
-                    q = RSAService.generate_prime(q_bits)
-            
-            # Step 2: Calculate n = p * q
-            n = p * q
-            
-            # Step 3: Calculate Euler's totient function φ(n) = (p-1)(q-1)
-            phi = (p - 1) * (q - 1)
-            
-            # Step 4: Choose e such that 1 < e < φ(n) and gcd(e, φ(n)) = 1
-            # Start with small values for faster computation
-            e = 3
-            while e < phi and RSAService.gcd(e, phi) != 1:
-                e += 2  # Try next odd number
-            
-            if e >= phi:
-                e = 65537
-                while e < phi and RSAService.gcd(e, phi) != 1:
-                    e += 2
-            
-            # Step 5: Calculate d such that (d * e) ≡ 1 mod φ(n)
-            d = RSAService.mod_inverse(e, phi)
-            
-            return create_success_response({
-                "public_key": {"n": n, "e": e},
-                "private_key": {"n": n, "d": d},
-                "p": p,  # For educational purposes
-                "q": q,  # For educational purposes
-                "phi": phi,  # For educational purposes
-                "key_size": key_size,
-                "actual_n_bits": n.bit_length()
-            })
-            
-        except Exception as ex:
-            return create_error_response(f"Key generation failed: {str(ex)}")
-    
-    @staticmethod
-    def encrypt_with_params(plaintext: str, p: int, q: int, e: int):
-        """
-        Encrypt message using RSA parameters p, q, e (no validation - accepts any input)
-        
-        Args:
-            plaintext: Message to encrypt
-            p: First number
-            q: Second number  
-            e: Public exponent
-        
-        Returns:
-            Tuple of (result_dict, status_code)
-        """
-        try:
-            # Calculate n (no validation - let user experiment)
-            n = p * q
-            
-            # Just pass to the encrypt function - let it handle any issues
-            return RSAService.encrypt(plaintext, n, e)
-            
-        except Exception as ex:
-            return create_error_response(f"Encryption with parameters failed: {str(ex)}")
-    
-    @staticmethod
-    def decrypt_with_params(ciphertext: str, p: int, q: int, d: int):
-        """
-        Decrypt message using RSA parameters p, q, d (no validation - accepts any input)
-        
-        Args:
-            ciphertext: Ciphertext as string number
-            p: First number
-            q: Second number
-            d: Private exponent
-        
-        Returns:
-            Tuple of (result_dict, status_code)
-        """
-        try:
-            # Calculate n (no validation - let user experiment)
-            n = p * q
-            
-            # Just pass to the decrypt function - let it handle any issues
-            return RSAService.decrypt(ciphertext, n, d)
-            
-        except Exception as ex:
-            return create_error_response(f"Decryption with parameters failed: {str(ex)}")
-
-    @staticmethod
-    def encrypt(plaintext: str, n: int, e: int):
-        """
-        Encrypt numeric message using standard RSA algorithm
-        
-        Args:
-            plaintext: Numeric message as string
-            n: Public key modulus
-            e: Public key exponent
-        
-        Returns:
-            Tuple of (result_dict, status_code)
-        """
-        try:
-            # Convert input to integer (standard RSA works with numbers)
-            message_int = int(plaintext)
-            
-            # Standard RSA encryption: C = M^e mod n
-            ciphertext_int = pow(message_int, e, n)
-            
-            return create_success_response({
-                "ciphertext": str(ciphertext_int),
-                "message_as_int": message_int
-            })
-            
-        except ValueError:
-            return create_error_response(f"Invalid input: '{plaintext}' is not a valid number")
-        except Exception as ex:
-            return create_error_response(f"Encryption failed: {str(ex)}")
-    
-    @staticmethod
-    def decrypt(ciphertext: str, n: int, d: int):
-        """
-        Decrypt numeric ciphertext using standard RSA algorithm
-        
-        Args:
-            ciphertext: Ciphertext as string number
-            n: Private key modulus
-            d: Private key exponent
-        
-        Returns:
-            Tuple of (result_dict, status_code)
-        """
-        try:
-            # Convert ciphertext to integer
-            ciphertext_int = int(ciphertext)
-            
-            # Standard RSA decryption: M = C^d mod n
-            message_int = pow(ciphertext_int, d, n)
-            
-            return create_success_response({
-                "plaintext": str(message_int),
-                "decrypted_int": message_int
-            })
-            
-        except ValueError:
-            return create_error_response(f"Invalid ciphertext: '{ciphertext}' is not a valid number")
-        except Exception as ex:
-            return create_error_response(f"Decryption failed: {str(ex)}")
-    
-    @staticmethod
-    def encrypt_with_public_key(plaintext: str, public_key: str):
-        """Encrypt with public key in JSON string format"""
-        try:
-            import json
-            if isinstance(public_key, str):
-                public_key = json.loads(public_key)
-            
-            if isinstance(public_key, dict) and 'n' in public_key and 'e' in public_key:
-                return RSAService.encrypt(plaintext, public_key['n'], public_key['e'])
-            else:
-                return create_error_response("Invalid public key format. Expected: {'n': number, 'e': number}")
-        except Exception as ex:
-            return create_error_response(f"Encryption failed: {str(ex)}")
-    
-    @staticmethod
-    def decrypt_with_private_key(ciphertext: str, private_key: str):
-        """Decrypt with private key in JSON string format"""
-        try:
-            import json
-            if isinstance(private_key, str):
-                private_key = json.loads(private_key)
-                
-            if isinstance(private_key, dict) and 'n' in private_key and 'd' in private_key:
-                return RSAService.decrypt(ciphertext, private_key['n'], private_key['d'])
-            else:
-                return create_error_response("Invalid private key format. Expected: {'n': number, 'd': number}")
-        except Exception as ex:
-            return create_error_response(f"Decryption failed: {str(ex)}")

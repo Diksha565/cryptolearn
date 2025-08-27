@@ -113,24 +113,6 @@ export const rsaAPI = {
     return apiCall<ApiResponse>('/rsa/verify', 'POST', data)
   },
 
-  encryptWithParams: async (data: {
-    plaintext: string
-    p: number
-    q: number
-    e: number
-  }) => {
-    return apiCall<ApiResponse>('/rsa/encrypt-with-params', 'POST', data)
-  },
-
-  decryptWithParams: async (data: {
-    ciphertext: string
-    p: number
-    q: number
-    d: number
-  }) => {
-    return apiCall<ApiResponse>('/rsa/decrypt-with-params', 'POST', data)
-  },
-
   getInfo: async () => {
     return apiCall<ApiResponse>('/rsa/info')
   }

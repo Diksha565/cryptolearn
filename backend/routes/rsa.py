@@ -35,13 +35,19 @@ def encrypt():
         plaintext = data['plaintext']
         public_key = data['public_key']
         
-        # Handle both string and dict format
+        # Handle both string and dict format for PUBLIC KEY
         if isinstance(public_key, str):
-            result, status_code = RSAService.encrypt_with_public_key(plaintext, public_key)
+            # Check if it's a PEM key (starts with -----BEGIN)
+            if public_key.strip().startswith('-----BEGIN'):
+                # Use new text-based encryption
+                result, status_code = RSAService.encrypt_text(plaintext, public_key)
+            else:
+                # Try to parse as JSON for old format compatibility
+                result, status_code = RSAService.encrypt_with_public_key(plaintext, public_key)
         elif isinstance(public_key, dict) and 'n' in public_key and 'e' in public_key:
             result, status_code = RSAService.encrypt(plaintext, public_key['n'], public_key['e'])
         else:
-            return jsonify(create_error_response("Invalid public key format. Expected: {'n': number, 'e': number}")[0]), 400
+            return jsonify(create_error_response("Invalid public key format. Expected PEM format or {'n': number, 'e': number}")[0]), 400
         
         return jsonify(result), status_code
     
@@ -66,13 +72,19 @@ def decrypt():
         ciphertext = data['ciphertext']
         private_key = data['private_key']
         
-        # Handle both string and dict format
+        # Handle both string and dict format for PRIVATE KEY
         if isinstance(private_key, str):
-            result, status_code = RSAService.decrypt_with_private_key(ciphertext, private_key)
+            # Check if it's a PEM key (starts with -----BEGIN)
+            if private_key.strip().startswith('-----BEGIN'):
+                # Use new text-based decryption
+                result, status_code = RSAService.decrypt_text(ciphertext, private_key)
+            else:
+                # Try to parse as JSON for old format compatibility
+                result, status_code = RSAService.decrypt_with_private_key(ciphertext, private_key)
         elif isinstance(private_key, dict) and 'n' in private_key and 'd' in private_key:
             result, status_code = RSAService.decrypt(ciphertext, private_key['n'], private_key['d'])
         else:
-            return jsonify(create_error_response("Invalid private key format. Expected: {'n': number, 'd': number}")[0]), 400
+            return jsonify(create_error_response("Invalid private key format. Expected PEM format or {'n': number, 'd': number}")[0]), 400
         
         return jsonify(result), status_code
     
@@ -97,6 +109,7 @@ def sign():
         message = data['message']
         private_key_pem = data['private_key']
         
+        # Use the new sign method that supports PEM keys
         result, status_code = RSAService.sign(message, private_key_pem)
         return jsonify(result), status_code
     
@@ -122,6 +135,7 @@ def verify():
         signature = data['signature']
         public_key_pem = data['public_key']
         
+        # Use the new verify method that supports PEM keys
         result, status_code = RSAService.verify(message, signature, public_key_pem)
         return jsonify(result), status_code
     
@@ -166,48 +180,4 @@ def info():
         }
     })
 
-@rsa_bp.route('/encrypt-with-params', methods=['POST'])
-def encrypt_with_params():
-    """Encrypt plaintext using RSA parameters p, q, e"""
-    try:
-        data = request.get_json()
-        
-        if not data:
-            return jsonify(create_error_response("No JSON data provided")[0]), 400
-        
-        # Get parameters with defaults of 0 if not provided
-        plaintext = data.get('plaintext', '')
-        p = int(data.get('p', 0))
-        q = int(data.get('q', 0))
-        e = int(data.get('e', 0))
-        
-        result, status_code = RSAService.encrypt_with_params(plaintext, p, q, e)
-        return jsonify(result), status_code
-    
-    except ValueError as ex:
-        return jsonify(create_error_response(f"Invalid number format: {str(ex)}")[0]), 400
-    except Exception as ex:
-        return jsonify(create_error_response(f"Encryption with parameters failed: {str(ex)}")[0]), 500
 
-@rsa_bp.route('/decrypt-with-params', methods=['POST'])
-def decrypt_with_params():
-    """Decrypt ciphertext using RSA parameters p, q, d"""
-    try:
-        data = request.get_json()
-        
-        if not data:
-            return jsonify(create_error_response("No JSON data provided")[0]), 400
-        
-        # Get parameters with defaults of 0 if not provided
-        ciphertext = data.get('ciphertext', '0')
-        p = int(data.get('p', 0))
-        q = int(data.get('q', 0))
-        d = int(data.get('d', 0))
-        
-        result, status_code = RSAService.decrypt_with_params(ciphertext, p, q, d)
-        return jsonify(result), status_code
-    
-    except ValueError as ex:
-        return jsonify(create_error_response(f"Invalid number format: {str(ex)}")[0]), 400
-    except Exception as ex:
-        return jsonify(create_error_response(f"Decryption with parameters failed: {str(ex)}")[0]), 500
