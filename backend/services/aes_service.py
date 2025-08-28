@@ -20,7 +20,7 @@ class AESService:
         return get_random_bytes(16)  # AES block size is always 16 bytes
     
     @staticmethod
-    def encrypt(plaintext: str, key: str, mode: str = 'CBC', key_size: int = 256):
+    def encrypt(plaintext: str, key: str, mode: str = 'CBC', key_size: int = 256, iv: str = None):
         """
         Encrypt plaintext using AES
         
@@ -29,6 +29,7 @@ class AESService:
             key: Encryption key
             mode: AES mode (ECB or CBC)
             key_size: Key size in bits (128, 192, 256)
+            iv: IV for CBC mode (optional, will generate if not provided)
         
         Returns:
             Tuple of (result_dict, status_code)
@@ -64,8 +65,27 @@ class AESService:
                 })
             
             else:  # CBC mode
-                iv = AESService._prepare_iv()
-                cipher = AES.new(prepared_key, AES.MODE_CBC, iv)
+                if iv:
+                    # First check if it's exactly 16 characters - treat as plain text
+                    if len(iv) == 16:
+                        iv_bytes = iv.encode('utf-8')
+                    else:
+                        # Try to decode as base64
+                        try:
+                            iv_bytes = decode_base64(iv)
+                            if len(iv_bytes) != 16:
+                                return create_error_response("Incorrect IV length (it must be 16 bytes long)")
+                        except:
+                            # If base64 decode fails, treat as plain text and pad/truncate to 16 bytes
+                            iv_text = iv.encode('utf-8')
+                            if len(iv_text) < 16:
+                                iv_bytes = iv_text + b'\x00' * (16 - len(iv_text))  # Pad with zeros
+                            else:
+                                iv_bytes = iv_text[:16]  # Truncate to 16 bytes
+                else:
+                    iv_bytes = AESService._prepare_iv()
+                
+                cipher = AES.new(prepared_key, AES.MODE_CBC, iv_bytes)
                 padded_data = pad(plaintext_bytes, AES.block_size)
                 ciphertext = cipher.encrypt(padded_data)
                 
@@ -73,7 +93,7 @@ class AESService:
                     "ciphertext": encode_base64(ciphertext),
                     "mode": mode.upper(),
                     "key_size": key_size,
-                    "iv": encode_base64(iv)
+                    "iv": encode_base64(iv_bytes)
                 })
         
         except Exception as e:
@@ -105,7 +125,7 @@ class AESService:
             if mode.upper() not in ['ECB', 'CBC']:
                 return create_error_response("Mode must be ECB or CBC")
             
-            if mode.upper() == 'CBC' and not iv:
+            if mode.upper() == 'CBC' and (not iv or not iv.strip()):
                 return create_error_response("IV is required for CBC mode")
             
             # Prepare key and ciphertext
@@ -119,7 +139,23 @@ class AESService:
                 decrypted_data = unpad(decrypted_padded, AES.block_size)
                 
             else:  # CBC mode
-                iv_bytes = decode_base64(iv)
+                # First check if it's exactly 16 characters - treat as plain text
+                if len(iv) == 16:
+                    iv_bytes = iv.encode('utf-8')
+                else:
+                    # Try to decode as base64
+                    try:
+                        iv_bytes = decode_base64(iv)
+                        if len(iv_bytes) != 16:
+                            return create_error_response("Incorrect IV length (it must be 16 bytes long)")
+                    except:
+                        # If base64 decode fails, treat as plain text and pad/truncate to 16 bytes
+                        iv_text = iv.encode('utf-8')
+                        if len(iv_text) < 16:
+                            iv_bytes = iv_text + b'\x00' * (16 - len(iv_text))  # Pad with zeros
+                        else:
+                            iv_bytes = iv_text[:16]  # Truncate to 16 bytes
+                
                 cipher = AES.new(prepared_key, AES.MODE_CBC, iv_bytes)
                 decrypted_padded = cipher.decrypt(ciphertext_bytes)
                 decrypted_data = unpad(decrypted_padded, AES.block_size)

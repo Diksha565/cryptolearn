@@ -23,8 +23,9 @@ def encrypt():
         key = data['key']
         mode = data.get('mode', 'CBC').upper()
         key_size = data.get('key_size', 256)
+        iv = data.get('iv')
         
-        result, status_code = AESService.encrypt(plaintext, key, mode, key_size)
+        result, status_code = AESService.encrypt(plaintext, key, mode, key_size, iv)
         return jsonify(result), status_code
     
     except Exception as e:
@@ -73,7 +74,8 @@ def info():
             "plaintext": "Text to encrypt (required)",
             "key": "Encryption key (required)",
             "mode": "AES mode - ECB or CBC (optional, default: CBC)",
-            "key_size": "Key size in bits - 128, 192, or 256 (optional, default: 256)"
+            "key_size": "Key size in bits - 128, 192, or 256 (optional, default: 256)",
+            "iv": "IV for CBC mode (optional, will generate if not provided)"
         },
         "decrypt_parameters": {
             "ciphertext": "Base64 encoded ciphertext (required)",

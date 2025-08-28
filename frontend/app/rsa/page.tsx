@@ -719,7 +719,7 @@ export default function RSAPage() {
                           value={decryptResult.plaintext}
                           readOnly
                           rows={4}
-                          className="bg-green-50 border-green-200"
+                          className="bg-green-50 text-black border-green-200"
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-4 text-sm">
