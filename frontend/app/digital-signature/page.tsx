@@ -25,6 +25,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Loader2,
   Key,
@@ -35,267 +36,290 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
+  Hash,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { signatureAPI } from "@/lib/api";
 import { DSAWalkthrough } from "@/components/dsa-walkthrough";
 
 export default function DigitalSignaturePage() {
+  // State management
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [result, setResult] = useState<string>("");
-  const [error, setError] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
   const [metadata, setMetadata] = useState<Record<string, string | number>>({});
-  const [activeTab, setActiveTab] = useState("keygen");
 
-  // Form states for different operations
-  const [keygenData, setKeygenData] = useState({
-    algorithm: "RSA",
-    keySize: 2048,
-    curve: "secp256r1",
-  });
+  // RSA Digital Signature States
+  const [rsaMessage, setRsaMessage] = useState("");
+  const [rsaPrivateKey, setRsaPrivateKey] = useState("");
+  const [rsaPublicKey, setRsaPublicKey] = useState("");
+  const [rsaSignature, setRsaSignature] = useState("");
+  const [rsaKeySize, setRsaKeySize] = useState<number>(2048);
 
-  const [signData, setSignData] = useState({
-    message: "",
-    privateKey: "",
-    algorithm: "RSA",
-    hashAlgorithm: "SHA-256",
-  });
+  // Hash-Based Digital Signature States
+  const [hashMessage, setHashMessage] = useState("");
+  const [hashAlgorithm, setHashAlgorithm] = useState("SHA-256");
+  const [hashSigningKey, setHashSigningKey] = useState("");
+  const [hashSignature, setHashSignature] = useState("");
+  const [hashVerificationKey, setHashVerificationKey] = useState("");
 
-  const [verifyData, setVerifyData] = useState({
-    message: "",
-    signature: "",
-    publicKey: "",
-    algorithm: "RSA",
-    hashAlgorithm: "SHA-256",
-  });
-
-  const [signAndVerifyData, setSignAndVerifyData] = useState({
-    message: "",
-    algorithm: "RSA",
-    keySize: 2048,
-    curve: "secp256r1",
-  });
-
-  const algorithms = [
-    { value: "RSA", label: "RSA (Rivest-Shamir-Adleman)" },
-    { value: "ECC", label: "ECC (Elliptic Curve)" },
-  ];
-
-  const keySizes = [
-    { value: 1024, label: "1024 bits (Not recommended)" },
-    { value: 2048, label: "2048 bits (Standard)" },
-    { value: 3072, label: "3072 bits (High security)" },
-    { value: 4096, label: "4096 bits (Maximum security)" },
-  ];
-
-  const curves = [
-    { value: "secp256r1", label: "secp256r1 (P-256)" },
-    { value: "secp384r1", label: "secp384r1 (P-384)" },
-    { value: "secp521r1", label: "secp521r1 (P-521)" },
-  ];
-
-  const hashAlgorithms = [
-    { value: "SHA-1", label: "SHA-1 (Legacy, not recommended)" },
-    { value: "SHA-256", label: "SHA-256 (Standard)" },
-    { value: "SHA-384", label: "SHA-384 (High security)" },
-    { value: "SHA-512", label: "SHA-512 (Maximum security)" },
-  ];
-
-  const resetResults = () => {
+  const clearMessages = () => {
+    setError(null);
+    setSuccess(null);
     setResult("");
-    setError("");
     setMetadata({});
   };
 
-  const handleKeyGeneration = async () => {
-    setIsLoading(true);
-    resetResults();
-
+  const copyToClipboard = async (text: string, label: string) => {
     try {
-      let response;
-
-      if (keygenData.algorithm === "RSA") {
-        response = await signatureAPI.generateKeypair({
-          algorithm: "RSA",
-          key_size: keygenData.keySize,
-        });
-      } else {
-        response = await signatureAPI.generateKeypair({
-          algorithm: "ECC",
-          curve: keygenData.curve,
-        });
-      }
-
-      if (response.success) {
-        const formattedResult = `Private Key:\n${response.private_key}\n\nPublic Key:\n${response.public_key}`;
-        setResult(formattedResult);
-        setMetadata({
-          Algorithm: keygenData.algorithm,
-          "Key Size":
-            keygenData.algorithm === "RSA"
-              ? `${keygenData.keySize} bits`
-              : keygenData.curve,
-          "Key Type": "Asymmetric",
-          "Private Key Length": `${
-            response.private_key?.length || 0
-          } characters`,
-          "Public Key Length": `${response.public_key?.length || 0} characters`,
-          Purpose: "Digital Signature",
-        });
-      } else {
-        setError(response.error || "Key generation failed");
-      }
-    } catch (error: any) {
-      setError(error.message || "An error occurred during key generation");
-    } finally {
-      setIsLoading(false);
+      await navigator.clipboard.writeText(text);
+      setSuccess(`${label} copied to clipboard!`);
+    } catch (err) {
+      setError(`Failed to copy ${label}`);
     }
   };
 
-  const handleSigning = async () => {
-    if (!signData.message || !signData.privateKey) {
-      setError("Please provide both message and private key");
-      return;
-    }
-
-    setIsLoading(true);
-    resetResults();
-
+  // RSA Digital Signature Functions
+  const handleRSAKeyGeneration = async () => {
+    clearMessages();
+    setLoading(true);
     try {
-      const response = await signatureAPI.sign({
-        message: signData.message,
-        private_key: signData.privateKey,
-        algorithm: signData.algorithm,
-        hash_algorithm: signData.hashAlgorithm,
+      const response = await signatureAPI.generateKeypair({
+        algorithm: "RSA",
+        key_size: rsaKeySize,
       });
 
       if (response.success) {
-        setResult(response.signature);
+        setRsaPrivateKey(response.private_key);
+        setRsaPublicKey(response.public_key);
+        
+        const formattedResult = `RSA Key Pair Generated Successfully!\n\n` +
+          `Private Key:\n${response.private_key}\n\n` +
+          `Public Key:\n${response.public_key}`;
+        
+        setResult(formattedResult);
         setMetadata({
-          Algorithm: signData.algorithm,
-          Operation: "Digital Signature Creation",
-          "Message Length": `${signData.message.length} characters`,
-          "Signature Algorithm":
-            response.signature_algorithm ||
-            `${signData.algorithm} with ${signData.hashAlgorithm}`,
-          "Hash Algorithm": signData.hashAlgorithm,
+          "Operation": "RSA Key Generation",
+          "Algorithm": "RSA",
+          "Key Size": `${rsaKeySize} bits`,
+          "Private Key Length": `${response.private_key?.length || 0} characters`,
+          "Public Key Length": `${response.public_key?.length || 0} characters`,
+          "Security Level": rsaKeySize >= 2048 ? "High" : "Medium"
         });
+        setSuccess("RSA key pair generated successfully!");
       } else {
-        setError(response.error || "Signing failed");
+        setError(response.error || "RSA key generation failed");
       }
-    } catch (error: any) {
-      setError(error.message || "An error occurred during signing");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "RSA key generation failed");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleVerification = async () => {
-    if (!verifyData.message || !verifyData.signature || !verifyData.publicKey) {
-      setError("Please provide message, signature, and public key");
+  const handleRSASign = async () => {
+    clearMessages();
+    if (!rsaMessage.trim()) {
+      setError("Please enter a message to sign");
+      return;
+    }
+    if (!rsaPrivateKey.trim()) {
+      setError("Please provide RSA private key");
       return;
     }
 
-    setIsLoading(true);
-    resetResults();
+    setLoading(true);
+    try {
+      const response = await signatureAPI.sign({
+        message: rsaMessage.trim(),
+        private_key: rsaPrivateKey.trim(),
+        algorithm: "RSA",
+      });
 
+      if (response.success) {
+        setRsaSignature(response.signature);
+        
+        const formattedResult = `RSA Digital Signature Created!\n\n` +
+          `Message: "${rsaMessage.trim()}"\n\n` +
+          `Digital Signature:\n${response.signature}`;
+        
+        setResult(formattedResult);
+        setMetadata({
+          "Operation": "RSA Digital Signature",
+          "Algorithm": "RSA",
+          "Message Length": `${rsaMessage.trim().length} characters`,
+          "Signature Length": `${response.signature?.length || 0} characters`,
+          "Hash Algorithm": "SHA-256",
+          "Status": "Signed Successfully"
+        });
+        setSuccess("Message signed successfully with RSA!");
+      } else {
+        setError(response.error || "RSA signing failed");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "RSA signing failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRSAVerify = async () => {
+    clearMessages();
+    if (!rsaMessage.trim()) {
+      setError("Please enter the original message");
+      return;
+    }
+    if (!rsaSignature.trim()) {
+      setError("Please provide RSA signature");
+      return;
+    }
+    if (!rsaPublicKey.trim()) {
+      setError("Please provide RSA public key");
+      return;
+    }
+
+    setLoading(true);
     try {
       const response = await signatureAPI.verify({
-        message: verifyData.message,
-        signature: verifyData.signature,
-        public_key: verifyData.publicKey,
-        algorithm: verifyData.algorithm,
-        hash_algorithm: verifyData.hashAlgorithm,
+        message: rsaMessage.trim(),
+        signature: rsaSignature.trim(),
+        public_key: rsaPublicKey.trim(),
+        algorithm: "RSA",
       });
 
       if (response.success) {
         const isValid = response.valid;
-        const resultIcon = isValid ? "✓" : "✗";
-        const resultColor = isValid ? "VALID" : "INVALID";
-        setResult(`Signature Verification: ${resultColor} ${resultIcon}`);
+        const statusIcon = isValid ? "✅" : "❌";
+        const statusText = isValid ? "VALID" : "INVALID";
+        
+        const formattedResult = `RSA Signature Verification Complete!\n\n` +
+          `Message: "${rsaMessage.trim()}"\n\n` +
+          `Verification Result: ${statusIcon} ${statusText}\n\n` +
+          `Status: ${isValid ? "Signature is authentic and message is unmodified" : "Signature verification failed - message may be tampered"}`;
+        
+        setResult(formattedResult);
         setMetadata({
-          Algorithm: verifyData.algorithm,
-          Operation: "Signature Verification",
-          Result: isValid ? "Valid" : "Invalid",
-          "Message Length": `${verifyData.message.length} characters`,
-          "Hash Algorithm": verifyData.hashAlgorithm,
-          "Verification Status": isValid
-            ? "Authentic & Unmodified"
-            : "Invalid or Tampered",
+          "Operation": "RSA Signature Verification",
+          "Algorithm": "RSA", 
+          "Verification Result": statusText,
+          "Message Length": `${rsaMessage.trim().length} characters`,
+          "Authenticity": isValid ? "Verified" : "Failed",
+          "Integrity": isValid ? "Intact" : "Compromised"
         });
+        setSuccess("RSA signature verification completed!");
       } else {
-        setError(response.error || "Verification failed");
+        setError(response.error || "RSA verification failed");
       }
-    } catch (error: any) {
-      setError(error.message || "An error occurred during verification");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "RSA verification failed");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleSignAndVerify = async () => {
-    if (!signAndVerifyData.message) {
-      setError("Please provide a message to sign and verify");
+  // Hash-Based Digital Signature Functions (Using Backend API)
+  const handleHashSign = async () => {
+    clearMessages();
+    if (!hashMessage.trim()) {
+      setError("Please enter a message to sign");
+      return;
+    }
+    if (!hashSigningKey.trim()) {
+      setError("Please provide a signing key");
       return;
     }
 
-    setIsLoading(true);
-    resetResults();
-
+    setLoading(true);
     try {
-      let requestData: any = {
-        message: signAndVerifyData.message,
-        algorithm: signAndVerifyData.algorithm,
-      };
-
-      if (signAndVerifyData.algorithm === "RSA") {
-        requestData.key_size = signAndVerifyData.keySize;
-      } else {
-        requestData.curve = signAndVerifyData.curve;
-      }
-
-      const response = await signatureAPI.signAndVerify(requestData);
+      const response = await signatureAPI.hashSign({
+        message: hashMessage.trim(),
+        key: hashSigningKey.trim(),
+        algorithm: hashAlgorithm,
+      });
 
       if (response.success) {
-        const formattedResult =
-          `COMPLETE DIGITAL SIGNATURE DEMONSTRATION\n\n` +
-          `Message: "${response.original_message}"\n\n` +
-          `Generated Keys:\n` +
-          `Private Key: ${response.private_key}\n\n` +
-          `Public Key: ${response.public_key}\n\n` +
-          `Digital Signature: ${response.signature}\n\n` +
-          `Verification Result: ${
-            response.verification_result ? "VALID ✓" : "INVALID ✗"
-          }\n\n` +
-          `Proof of Integrity: ${
-            response.verification_result
-              ? "Message is authentic and unmodified"
-              : "Message may have been tampered with"
-          }`;
-
+        setHashSignature(response.signature);
+        setHashVerificationKey(hashSigningKey.trim()); // Auto-populate verification key
+        
+        const formattedResult = `Hash-Based Digital Signature Created!\n\n` +
+          `Message: "${hashMessage.trim()}"\n\n` +
+          `Algorithm: HMAC-${hashAlgorithm}\n\n` +
+          `Digital Signature:\n${response.signature}`;
+        
         setResult(formattedResult);
         setMetadata({
-          Algorithm: signAndVerifyData.algorithm,
-          Operation: "Complete Sign & Verify Demo",
-          "Key Generation": "Successful",
-          "Message Signing": "Successful",
-          "Signature Verification": response.verification_result
-            ? "Valid"
-            : "Invalid",
-          "Security Level":
-            signAndVerifyData.algorithm === "RSA"
-              ? `${signAndVerifyData.keySize} bits`
-              : signAndVerifyData.curve,
+          "Operation": "Hash-Based Digital Signature",
+          "Algorithm": `HMAC-${hashAlgorithm}`,
+          "Message Length": `${hashMessage.trim().length} characters`,
+          "Signature Length": `${response.signature?.length || 0} characters`,
+          "Key Type": "Symmetric (Shared Secret)",
+          "Status": "Signed Successfully"
         });
+        setSuccess("Message signed successfully with hash-based signature!");
       } else {
-        setError(response.error || "Sign and verify operation failed");
+        setError(response.error || "Hash-based signing failed");
       }
-    } catch (error: any) {
-      setError(
-        error.message ||
-          "An error occurred during the sign and verify operation"
-      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Hash-based signing failed");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
+    }
+  };
+
+  const handleHashVerify = async () => {
+    clearMessages();
+    if (!hashMessage.trim()) {
+      setError("Please enter the original message");
+      return;
+    }
+    if (!hashSignature.trim()) {
+      setError("Please provide hash signature");
+      return;
+    }
+    if (!hashVerificationKey.trim()) {
+      setError("Please provide verification key");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await signatureAPI.hashVerify({
+        message: hashMessage.trim(),
+        signature: hashSignature.trim(),
+        key: hashVerificationKey.trim(),
+        algorithm: hashAlgorithm,
+      });
+
+      if (response.success) {
+        const isValid = response.valid;
+        const statusIcon = isValid ? "✅" : "❌";
+        const statusText = isValid ? "VALID" : "INVALID";
+        
+        const formattedResult = `Hash Signature Verification Complete!\n\n` +
+          `Message: "${hashMessage.trim()}"\n\n` +
+          `Algorithm: HMAC-${hashAlgorithm}\n\n` +
+          `Verification Result: ${statusIcon} ${statusText}\n\n` +
+          `Status: ${isValid ? "Signature is authentic and message is unmodified" : "Signature verification failed - message may be tampered"}`;
+        
+        setResult(formattedResult);
+        setMetadata({
+          "Operation": "Hash Signature Verification",
+          "Algorithm": `HMAC-${hashAlgorithm}`,
+          "Verification Result": statusText,
+          "Message Length": `${hashMessage.trim().length} characters`,
+          "Authenticity": isValid ? "Verified" : "Failed",
+          "Integrity": isValid ? "Intact" : "Compromised"
+        });
+        setSuccess("Hash signature verification completed!");
+      } else {
+        setError(response.error || "Hash verification failed");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Hash verification failed");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -307,7 +331,7 @@ export default function DigitalSignaturePage() {
           <div>
             <h1 className="text-2xl font-bold">Digital Signature</h1>
             <p className="text-muted-foreground">
-              Cryptographic Authentication and Non-Repudiation
+              RSA-based and Hash-based Digital Signature Implementation
             </p>
           </div>
         </div>
@@ -316,38 +340,38 @@ export default function DigitalSignaturePage() {
       <div className="container mx-auto px-6 py-8 space-y-8">
         <ExplanationCard
           title="Digital Signature"
-          description="A cryptographic mechanism that provides authentication, integrity, and non-repudiation for digital documents."
-          theory="Digital signatures use public-key cryptography to create a unique digital fingerprint for documents. The process involves creating a hash of the document using a cryptographic hash function (like SHA-256), then encrypting this hash with the signer's private key. The resulting signature can be verified by anyone using the signer's public key to decrypt the signature and compare it with a fresh hash of the document. If they match, the signature is valid, proving the document hasn't been altered and was signed by the holder of the private key."
+          description="A cryptographic mechanism that provides authentication, integrity, and non-repudiation for digital documents using both RSA and hash-based approaches."
+          theory="Digital signatures use cryptographic techniques to verify the authenticity and integrity of digital messages. RSA-based signatures use public-key cryptography where the private key signs the message and the public key verifies it. Hash-based signatures use symmetric keys with hash functions to create message authentication codes (MAC). Both methods ensure that the message hasn't been tampered with and confirm the identity of the sender."
           useCases={[
-            "Legal document authentication and contracts",
-            "Software code signing and distribution",
-            "Email security (S/MIME, PGP)",
+            "Document authentication and legal contracts",
+            "Software code signing and distribution", 
+            "Email security and message integrity",
             "Financial transactions and banking",
             "Government and regulatory compliance",
-            "Medical records and healthcare data",
-            "Blockchain and cryptocurrency transactions",
-            "Digital certificates and PKI systems",
+            "Medical records authentication",
+            "Blockchain transactions",
+            "API authentication and authorization",
           ]}
           pros={[
-            "Provides strong authentication of document origin",
-            "Ensures document integrity and detects tampering",
+            "Strong authentication of document origin",
+            "Ensures message integrity and detects tampering",
             "Non-repudiation prevents denial of signing",
             "Legally recognized in most jurisdictions",
-            "Can be verified by anyone with the public key",
-            "Timestamping provides proof of signing time",
-            "Scales well for large-scale deployments",
+            "Multiple implementation approaches available",
+            "Scalable for enterprise deployments",
+            "Can be combined with timestamps",
           ]}
           cons={[
-            "Requires proper key management and PKI infrastructure",
-            "Private key compromise invalidates all signatures",
-            "Certificate expiration and revocation complexity",
-            "Computational overhead for signing and verification",
+            "Requires careful key management",
+            "Private key compromise affects all signatures",
+            "Computational overhead for signing/verification",
+            "Certificate management complexity",
+            "Vulnerable to quantum computing (RSA)",
+            "Hash-based methods need secure key distribution",
             "Legal framework varies by jurisdiction",
-            "User education required for proper implementation",
-            "Vulnerable to quantum computing attacks",
           ]}
-          complexity="Intermediate"
-          keySize="2048-4096 bits (RSA) / 256-521 bits (ECC)"
+          complexity="Intermediate to Advanced"
+          keySize="2048-4096 bits (RSA) / Variable length (Hash-based)"
         />
 
         <div className="grid lg:grid-cols-2 gap-8">
@@ -358,452 +382,285 @@ export default function DigitalSignaturePage() {
                 Digital Signature Operations
               </CardTitle>
               <CardDescription>
-                Generate keys, create signatures, and verify document
-                authenticity
+                Create and verify digital signatures using RSA and hash-based methods
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Tabs
-                value={activeTab}
-                onValueChange={setActiveTab}
-                className="w-full"
-              >
-                <TabsList className="grid w-full grid-cols-5">
-                  <TabsTrigger value="keygen" className="text-xs">
-                    <Key className="h-3 w-3 mr-1" />
-                    Keys
+              <Tabs defaultValue="rsa-sign" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="rsa-sign" className="text-xs">
+                    <Lock className="h-3 w-3 mr-1" />
+                    RSA Sign
                   </TabsTrigger>
-                  <TabsTrigger value="sign" className="text-xs">
-                    <FileSignature className="h-3 w-3 mr-1" />
-                    Sign
+                  <TabsTrigger value="rsa-verify" className="text-xs">
+                    <Unlock className="h-3 w-3 mr-1" />
+                    RSA Verify
                   </TabsTrigger>
-                  <TabsTrigger value="verify" className="text-xs">
-                    <ShieldCheck className="h-3 w-3 mr-1" />
-                    Verify
-                  </TabsTrigger>
-                  <TabsTrigger value="demo" className="text-xs">
-                    <Zap className="h-3 w-3 mr-1" />
-                    Demo
+                  <TabsTrigger value="hash-sign" className="text-xs">
+                    <Hash className="h-3 w-3 mr-1" />
+                    Hash Sign
                   </TabsTrigger>
                   <TabsTrigger value="walkthrough" className="text-xs">
                     <Info className="h-3 w-3 mr-1" />
-                    DSA
+                    Learn
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="keygen" className="space-y-4">
+                <TabsContent value="rsa-sign" className="space-y-4">
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      RSA Digital Signature uses public-key cryptography. Generate keys first, then sign your message.
+                    </AlertDescription>
+                  </Alert>
+
                   <div>
-                    <Label htmlFor="algorithm">Signature Algorithm</Label>
+                    <Label htmlFor="rsaKeySize">RSA Key Size</Label>
                     <Select
-                      value={keygenData.algorithm}
-                      onValueChange={(value) =>
-                        setKeygenData((prev) => ({ ...prev, algorithm: value }))
-                      }
+                      value={rsaKeySize.toString()}
+                      onValueChange={(value) => setRsaKeySize(parseInt(value))}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {algorithms.map((algo) => (
-                          <SelectItem key={algo.value} value={algo.value}>
-                            {algo.label}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="1024">1024 bits (Fast, Less Secure)</SelectItem>
+                        <SelectItem value="2048">2048 bits (Standard)</SelectItem>
+                        <SelectItem value="3072">3072 bits (High Security)</SelectItem>
+                        <SelectItem value="4096">4096 bits (Maximum Security)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {keygenData.algorithm === "RSA" ? (
-                    <div>
-                      <Label htmlFor="keySize">Key Size</Label>
-                      <Select
-                        value={keygenData.keySize.toString()}
-                        onValueChange={(value) =>
-                          setKeygenData((prev) => ({
-                            ...prev,
-                            keySize: parseInt(value),
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {keySizes.map((size) => (
-                            <SelectItem
-                              key={size.value}
-                              value={size.value.toString()}
-                            >
-                              {size.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  <Button onClick={handleRSAKeyGeneration} disabled={loading} className="w-full">
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Key className="h-4 w-4 mr-2" />}
+                    Generate RSA Key Pair
+                  </Button>
+
+                  <div>
+                    <Label htmlFor="rsaMessage">Message to Sign</Label>
+                    <Textarea
+                      id="rsaMessage"
+                      placeholder="Enter message to create RSA digital signature..."
+                      value={rsaMessage}
+                      onChange={(e) => setRsaMessage(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label htmlFor="rsaPrivateKey">RSA Private Key (Generated)</Label>
+                      {rsaPrivateKey && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(rsaPrivateKey, "Private Key")}
+                        >
+                          <FileSignature className="h-3 w-3 mr-1" />
+                          Copy
+                        </Button>
+                      )}
                     </div>
-                  ) : (
+                    <Textarea
+                      id="rsaPrivateKey"
+                      placeholder="Private key will appear here after generation..."
+                      value={rsaPrivateKey}
+                      onChange={(e) => setRsaPrivateKey(e.target.value)}
+                      rows={4}
+                      className="font-mono text-xs"
+                    />
+                  </div>
+
+                  <Button onClick={handleRSASign} disabled={loading} className="w-full">
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileSignature className="h-4 w-4 mr-2" />}
+                    Create RSA Digital Signature
+                  </Button>
+
+                  {rsaSignature && (
                     <div>
-                      <Label htmlFor="curve">Elliptic Curve</Label>
-                      <Select
-                        value={keygenData.curve}
-                        onValueChange={(value) =>
-                          setKeygenData((prev) => ({ ...prev, curve: value }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {curves.map((curve) => (
-                            <SelectItem key={curve.value} value={curve.value}>
-                              {curve.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label>RSA Digital Signature</Label>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(rsaSignature, "RSA Signature")}
+                        >
+                          <FileSignature className="h-3 w-3 mr-1" />
+                          Copy
+                        </Button>
+                      </div>
+                      <Textarea
+                        value={rsaSignature}
+                        readOnly
+                        rows={3}
+                        className="font-mono text-xs bg-muted"
+                      />
                     </div>
                   )}
-
-                  <Button
-                    onClick={handleKeyGeneration}
-                    disabled={isLoading}
-                    className="w-full"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Key className="h-4 w-4 mr-2" />
-                    )}
-                    Generate {keygenData.algorithm} Key Pair
-                  </Button>
                 </TabsContent>
 
-                <TabsContent value="sign" className="space-y-4">
-                  <div>
-                    <Label htmlFor="signAlgorithm">Algorithm</Label>
-                    <Select
-                      value={signData.algorithm}
-                      onValueChange={(value) =>
-                        setSignData((prev) => ({ ...prev, algorithm: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {algorithms.map((algo) => (
-                          <SelectItem key={algo.value} value={algo.value}>
-                            {algo.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <TabsContent value="rsa-verify" className="space-y-4">
+                  <Alert>
+                    <ShieldCheck className="h-4 w-4" />
+                    <AlertDescription>
+                      Verify RSA signature using the public key. Paste the signature and public key from the signing process.
+                    </AlertDescription>
+                  </Alert>
 
                   <div>
-                    <Label htmlFor="signHashAlgorithm">Hash Algorithm</Label>
-                    <Select
-                      value={signData.hashAlgorithm}
-                      onValueChange={(value) =>
-                        setSignData((prev) => ({
-                          ...prev,
-                          hashAlgorithm: value,
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {hashAlgorithms.map((hash) => (
-                          <SelectItem key={hash.value} value={hash.value}>
-                            {hash.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="signMessage">
-                      Message/Document to Sign
-                    </Label>
+                    <Label htmlFor="rsaVerifyMessage">Original Message</Label>
                     <Textarea
-                      id="signMessage"
-                      placeholder="Enter the message or document content to sign..."
-                      value={signData.message}
-                      onChange={(e) =>
-                        setSignData((prev) => ({
-                          ...prev,
-                          message: e.target.value,
-                        }))
-                      }
-                      rows={4}
+                      id="rsaVerifyMessage"
+                      placeholder="Enter the original message that was signed..."
+                      value={rsaMessage}
+                      onChange={(e) => setRsaMessage(e.target.value)}
+                      rows={3}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="signPrivateKey">
-                      Private Key (PEM format)
-                    </Label>
-                    <Textarea
-                      id="signPrivateKey"
-                      placeholder="Enter your private key in PEM format..."
-                      value={signData.privateKey}
-                      onChange={(e) =>
-                        setSignData((prev) => ({
-                          ...prev,
-                          privateKey: e.target.value,
-                        }))
-                      }
-                      rows={6}
-                    />
-                  </div>
-
-                  <Button
-                    onClick={handleSigning}
-                    disabled={isLoading}
-                    className="w-full"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <FileSignature className="h-4 w-4 mr-2" />
-                    )}
-                    Create Digital Signature
-                  </Button>
-                </TabsContent>
-
-                <TabsContent value="verify" className="space-y-4">
-                  <div>
-                    <Label htmlFor="verifyAlgorithm">Algorithm</Label>
-                    <Select
-                      value={verifyData.algorithm}
-                      onValueChange={(value) =>
-                        setVerifyData((prev) => ({ ...prev, algorithm: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {algorithms.map((algo) => (
-                          <SelectItem key={algo.value} value={algo.value}>
-                            {algo.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="verifyHashAlgorithm">Hash Algorithm</Label>
-                    <Select
-                      value={verifyData.hashAlgorithm}
-                      onValueChange={(value) =>
-                        setVerifyData((prev) => ({
-                          ...prev,
-                          hashAlgorithm: value,
-                        }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {hashAlgorithms.map((hash) => (
-                          <SelectItem key={hash.value} value={hash.value}>
-                            {hash.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="verifyMessage">
-                      Original Message/Document
-                    </Label>
-                    <Textarea
-                      id="verifyMessage"
-                      placeholder="Enter the original message or document content..."
-                      value={verifyData.message}
-                      onChange={(e) =>
-                        setVerifyData((prev) => ({
-                          ...prev,
-                          message: e.target.value,
-                        }))
-                      }
-                      rows={4}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="signature">Digital Signature</Label>
-                    <Textarea
-                      id="signature"
-                      placeholder="Enter the digital signature to verify..."
-                      value={verifyData.signature}
-                      onChange={(e) =>
-                        setVerifyData((prev) => ({
-                          ...prev,
-                          signature: e.target.value,
-                        }))
-                      }
-                      rows={4}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="verifyPublicKey">
-                      Public Key (PEM format)
-                    </Label>
-                    <Textarea
-                      id="verifyPublicKey"
-                      placeholder="Enter the signer's public key in PEM format..."
-                      value={verifyData.publicKey}
-                      onChange={(e) =>
-                        setVerifyData((prev) => ({
-                          ...prev,
-                          publicKey: e.target.value,
-                        }))
-                      }
-                      rows={6}
-                    />
-                  </div>
-
-                  <Button
-                    onClick={handleVerification}
-                    disabled={isLoading}
-                    className="w-full"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <ShieldCheck className="h-4 w-4 mr-2" />
-                    )}
-                    Verify Digital Signature
-                  </Button>
-                </TabsContent>
-
-                <TabsContent value="demo" className="space-y-4">
-                  <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Info className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-600">
-                        Complete Demo
-                      </span>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label htmlFor="rsaSignatureVerify">RSA Signature to Verify</Label>
+                      {rsaSignature && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(rsaSignature, "RSA Signature")}
+                        >
+                          <FileSignature className="h-3 w-3 mr-1" />
+                          Copy
+                        </Button>
+                      )}
                     </div>
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      This will generate keys, sign your message, and verify the
-                      signature all in one operation.
-                    </p>
+                    <Textarea
+                      id="rsaSignatureVerify"
+                      placeholder="Paste RSA signature here..."
+                      value={rsaSignature}
+                      onChange={(e) => setRsaSignature(e.target.value)}
+                      rows={3}
+                      className="font-mono text-xs"
+                    />
                   </div>
 
                   <div>
-                    <Label htmlFor="demoAlgorithm">Algorithm</Label>
-                    <Select
-                      value={signAndVerifyData.algorithm}
-                      onValueChange={(value) =>
-                        setSignAndVerifyData((prev) => ({
-                          ...prev,
-                          algorithm: value,
-                        }))
-                      }
-                    >
+                    <div className="flex items-center justify-between mb-2">
+                      <Label htmlFor="rsaPublicKeyVerify">RSA Public Key</Label>
+                      {rsaPublicKey && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(rsaPublicKey, "Public Key")}
+                        >
+                          <Key className="h-3 w-3 mr-1" />
+                          Copy
+                        </Button>
+                      )}
+                    </div>
+                    <Textarea
+                      id="rsaPublicKeyVerify"
+                      placeholder="Public key will appear here after key generation..."
+                      value={rsaPublicKey}
+                      onChange={(e) => setRsaPublicKey(e.target.value)}
+                      rows={4}
+                      className="font-mono text-xs"
+                    />
+                  </div>
+
+                  <Button onClick={handleRSAVerify} disabled={loading} className="w-full">
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                    Verify RSA Signature
+                  </Button>
+                </TabsContent>
+
+                <TabsContent value="hash-sign" className="space-y-4">
+                  <Alert>
+                    <Hash className="h-4 w-4" />
+                    <AlertDescription>
+                      Hash-based signatures use symmetric keys with hash functions. Both signer and verifier must have the same key.
+                    </AlertDescription>
+                  </Alert>
+
+                  <div>
+                    <Label htmlFor="hashAlgorithm">Hash Algorithm</Label>
+                    <Select value={hashAlgorithm} onValueChange={setHashAlgorithm}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {algorithms.map((algo) => (
-                          <SelectItem key={algo.value} value={algo.value}>
-                            {algo.label}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="SHA-256">SHA-256</SelectItem>
+                        <SelectItem value="SHA-384">SHA-384</SelectItem>
+                        <SelectItem value="SHA-512">SHA-512</SelectItem>
+                        <SelectItem value="MD5">MD5 (Not Recommended)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {signAndVerifyData.algorithm === "RSA" ? (
+                  <div>
+                    <Label htmlFor="hashMessage">Message to Sign</Label>
+                    <Textarea
+                      id="hashMessage"
+                      placeholder="Enter message to create hash-based signature..."
+                      value={hashMessage}
+                      onChange={(e) => setHashMessage(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="hashSigningKey">Signing Key (Secret)</Label>
+                    <Input
+                      id="hashSigningKey"
+                      type="password"
+                      placeholder="Enter your secret signing key..."
+                      value={hashSigningKey}
+                      onChange={(e) => setHashSigningKey(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button onClick={handleHashSign} disabled={loading} className="w-full">
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Hash className="h-4 w-4 mr-2" />}
+                      Create Hash Signature
+                    </Button>
+                    <Button onClick={handleHashVerify} disabled={loading} variant="outline" className="w-full">
+                      {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                      Verify Hash Signature
+                    </Button>
+                  </div>
+
+                  {hashSignature && (
                     <div>
-                      <Label htmlFor="demoKeySize">Key Size</Label>
-                      <Select
-                        value={signAndVerifyData.keySize.toString()}
-                        onValueChange={(value) =>
-                          setSignAndVerifyData((prev) => ({
-                            ...prev,
-                            keySize: parseInt(value),
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {keySizes.map((size) => (
-                            <SelectItem
-                              key={size.value}
-                              value={size.value.toString()}
-                            >
-                              {size.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : (
-                    <div>
-                      <Label htmlFor="demoCurve">Elliptic Curve</Label>
-                      <Select
-                        value={signAndVerifyData.curve}
-                        onValueChange={(value) =>
-                          setSignAndVerifyData((prev) => ({
-                            ...prev,
-                            curve: value,
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {curves.map((curve) => (
-                            <SelectItem key={curve.value} value={curve.value}>
-                              {curve.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label>Hash-based Signature</Label>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => copyToClipboard(hashSignature, "Hash Signature")}
+                        >
+                          <Hash className="h-3 w-3 mr-1" />
+                          Copy
+                        </Button>
+                      </div>
+                      <Textarea
+                        value={hashSignature}
+                        readOnly
+                        rows={2}
+                        className="font-mono text-xs bg-muted"
+                      />
                     </div>
                   )}
 
                   <div>
-                    <Label htmlFor="demoMessage">Message to Sign</Label>
-                    <Textarea
-                      id="demoMessage"
-                      placeholder="Enter a message for the complete demo..."
-                      value={signAndVerifyData.message}
-                      onChange={(e) =>
-                        setSignAndVerifyData((prev) => ({
-                          ...prev,
-                          message: e.target.value,
-                        }))
-                      }
-                      rows={4}
+                    <Label htmlFor="hashVerificationKey">Verification Key (Should match signing key)</Label>
+                    <Input
+                      id="hashVerificationKey"
+                      type="password"
+                      placeholder="Enter verification key..."
+                      value={hashVerificationKey}
+                      onChange={(e) => setHashVerificationKey(e.target.value)}
                     />
                   </div>
-
-                  <Button
-                    onClick={handleSignAndVerify}
-                    disabled={isLoading}
-                    className="w-full"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Zap className="h-4 w-4 mr-2" />
-                    )}
-                    Run Complete Demo
-                  </Button>
                 </TabsContent>
 
                 <TabsContent value="walkthrough" className="space-y-4">
@@ -811,64 +668,37 @@ export default function DigitalSignaturePage() {
                     <div className="flex items-center gap-2 mb-2">
                       <Info className="h-4 w-4 text-blue-600" />
                       <span className="text-sm font-medium text-blue-600">
-                        Interactive DSA Process
+                        Interactive Digital Signature Learning
                       </span>
                     </div>
                     <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
-                      Learn the complete Digital Signature Algorithm (DSA)
-                      process step by step. This interactive walkthrough shows
-                      how messages are signed with hash functions and verified
-                      for authenticity and integrity.
+                      Learn how digital signatures work step by step, including both RSA-based and hash-based approaches.
                     </p>
 
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="bg-white dark:bg-slate-900 rounded-lg p-4 border">
                         <h4 className="font-semibold mb-2 flex items-center gap-2">
-                          <FileSignature className="h-4 w-4" />
-                          DSA Process Overview
+                          <Lock className="h-4 w-4" />
+                          RSA Digital Signature
                         </h4>
                         <ul className="text-sm space-y-1 text-muted-foreground">
-                          <li>
-                            • <strong>Step 1-2:</strong> Message hashing with
-                            cryptographic functions
-                          </li>
-                          <li>
-                            • <strong>Step 3-4:</strong> Bundle creation and
-                            private key signing
-                          </li>
-                          <li>
-                            • <strong>Step 5-6:</strong> Secure transmission and
-                            public key verification
-                          </li>
-                          <li>
-                            • <strong>Step 7-9:</strong> Hash comparison and
-                            integrity verification
-                          </li>
+                          <li>• <strong>Asymmetric:</strong> Uses public/private key pairs</li>
+                          <li>• <strong>Security:</strong> Based on RSA algorithm strength</li>
+                          <li>• <strong>Key Size:</strong> 2048-4096 bits recommended</li>
+                          <li>• <strong>Use Case:</strong> Legal documents, code signing</li>
                         </ul>
                       </div>
 
                       <div className="bg-white dark:bg-slate-900 rounded-lg p-4 border">
                         <h4 className="font-semibold mb-2 flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4 text-amber-600" />
-                          Hash Functions Role
+                          <Hash className="h-4 w-4" />
+                          Hash-Based Signature
                         </h4>
                         <ul className="text-sm space-y-1 text-muted-foreground">
-                          <li>
-                            • <strong>SHA-256:</strong> Most commonly used,
-                            256-bit output
-                          </li>
-                          <li>
-                            • <strong>SHA-384:</strong> Higher security, 384-bit
-                            output
-                          </li>
-                          <li>
-                            • <strong>SHA-512:</strong> Maximum security,
-                            512-bit output
-                          </li>
-                          <li>
-                            • <strong>Collision Resistance:</strong> Prevents
-                            forgery attacks
-                          </li>
+                          <li>• <strong>Symmetric:</strong> Uses shared secret keys</li>
+                          <li>• <strong>Security:</strong> Based on hash function strength</li>
+                          <li>• <strong>Speed:</strong> Faster than RSA operations</li>
+                          <li>• <strong>Use Case:</strong> API authentication, messages</li>
                         </ul>
                       </div>
                     </div>
@@ -879,11 +709,11 @@ export default function DigitalSignaturePage() {
           </Card>
 
           <OutputDisplay
-            title="Digital Signature Result"
+            title="Digital Signature Results"
             result={result}
-            error={error}
+            error={error || undefined}
             metadata={metadata}
-            isLoading={isLoading}
+            isLoading={loading}
           />
         </div>
 
@@ -892,18 +722,52 @@ export default function DigitalSignaturePage() {
           <DSAWalkthrough />
         </div>
 
+        {/* Comparison Card */}
         <Card className="mt-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Info className="h-5 w-5" />
-              Digital Signature Security Properties
+              RSA vs Hash-Based Digital Signatures
             </CardTitle>
             <CardDescription>
-              Understanding the cryptographic guarantees provided by digital
-              signatures
+              Understanding the differences between cryptographic signature approaches
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950">
+                <div className="flex items-center gap-2 mb-3">
+                  <Lock className="h-5 w-5 text-blue-600" />
+                  <Badge variant="secondary">RSA Digital Signature</Badge>
+                </div>
+                <ul className="text-sm space-y-2 text-muted-foreground">
+                  <li>• <strong>Asymmetric cryptography</strong> - Public/private key pairs</li>
+                  <li>• <strong>Non-repudiation</strong> - Cannot deny signing</li>
+                  <li>• <strong>Key distribution</strong> - Public keys can be shared openly</li>
+                  <li>• <strong>Computational cost</strong> - Higher due to large numbers</li>
+                  <li>• <strong>Legal validity</strong> - Widely accepted in law</li>
+                  <li>• <strong>Quantum vulnerability</strong> - Vulnerable to future quantum attacks</li>
+                </ul>
+              </div>
+
+              <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-950">
+                <div className="flex items-center gap-2 mb-3">
+                  <Hash className="h-5 w-5 text-green-600" />
+                  <Badge variant="secondary">Hash-Based Signature</Badge>
+                </div>
+                <ul className="text-sm space-y-2 text-muted-foreground">
+                  <li>• <strong>Symmetric cryptography</strong> - Shared secret keys</li>
+                  <li>• <strong>Message authentication</strong> - Proves message integrity</li>
+                  <li>• <strong>Key management</strong> - Keys must be securely shared</li>
+                  <li>• <strong>Performance</strong> - Much faster computation</li>
+                  <li>• <strong>Simplicity</strong> - Easier to implement and understand</li>
+                  <li>• <strong>Quantum resistance</strong> - Generally more quantum-resistant</li>
+                </ul>
+              </div>
+            </div>
+
+            <Separator className="my-6" />
+
             <div className="grid md:grid-cols-3 gap-6">
               <div className="text-center p-4 border rounded-lg">
                 <div className="flex justify-center mb-3">
@@ -913,7 +777,7 @@ export default function DigitalSignaturePage() {
                   Authentication
                 </Badge>
                 <p className="text-sm text-muted-foreground">
-                  Verifies the identity of the signer and proves document origin
+                  Both methods verify the identity of the message sender
                 </p>
               </div>
               <div className="text-center p-4 border rounded-lg">
@@ -924,50 +788,19 @@ export default function DigitalSignaturePage() {
                   Integrity
                 </Badge>
                 <p className="text-sm text-muted-foreground">
-                  Detects any tampering or modification of the signed document
+                  Both detect any tampering or modification of the message
                 </p>
               </div>
               <div className="text-center p-4 border rounded-lg">
                 <div className="flex justify-center mb-3">
-                  <XCircle className="h-8 w-8 text-purple-600" />
+                  <AlertTriangle className="h-8 w-8 text-amber-600" />
                 </div>
                 <Badge variant="secondary" className="mb-2">
-                  Non-Repudiation
+                  Use Cases
                 </Badge>
                 <p className="text-sm text-muted-foreground">
-                  Prevents the signer from denying that they signed the document
+                  RSA for legal/formal documents, Hash for API/system authentication
                 </p>
-              </div>
-            </div>
-
-            <Separator className="my-6" />
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-semibold mb-3 flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600" />
-                  Security Considerations
-                </h4>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Keep private keys secure and encrypted</li>
-                  <li>• Use strong key sizes (RSA ≥ 2048, ECC ≥ 256)</li>
-                  <li>• Implement proper certificate management</li>
-                  <li>• Consider quantum-resistant algorithms for future</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-3 flex items-center gap-2">
-                  <Key className="h-4 w-4 text-green-600" />
-                  Best Practices
-                </h4>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>
-                    • Use hardware security modules (HSMs) for high-value keys
-                  </li>
-                  <li>• Implement proper key rotation policies</li>
-                  <li>• Add timestamps to prevent replay attacks</li>
-                  <li>• Validate certificates and check revocation lists</li>
-                </ul>
               </div>
             </div>
           </CardContent>

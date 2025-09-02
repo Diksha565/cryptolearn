@@ -107,19 +107,121 @@ def sign_and_verify():
     except Exception as e:
         return jsonify(create_error_response(f"Sign and verify workflow failed: {str(e)}")[0]), 500
 
+@signature_bp.route('/hash-sign', methods=['POST'])
+def hash_sign():
+    """Create hash-based signature (HMAC-like)"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify(create_error_response("No JSON data provided")[0]), 400
+        
+        # Validate required fields
+        required_fields = ['message', 'key']
+        is_valid, error_msg = validate_required_fields(data, required_fields)
+        if not is_valid:
+            return jsonify(create_error_response(error_msg)[0]), 400
+        
+        message = data['message']
+        key = data['key']
+        algorithm = data.get('algorithm', 'SHA-256')
+        
+        # Simple hash-based signature (HMAC-like)
+        import hashlib
+        import hmac
+        import base64
+        
+        if algorithm == 'SHA-256':
+            signature = hmac.new(key.encode(), message.encode(), hashlib.sha256).digest()
+        elif algorithm == 'SHA-384':
+            signature = hmac.new(key.encode(), message.encode(), hashlib.sha384).digest()
+        elif algorithm == 'SHA-512':
+            signature = hmac.new(key.encode(), message.encode(), hashlib.sha512).digest()
+        else:
+            return jsonify(create_error_response("Unsupported hash algorithm")[0]), 400
+        
+        signature_b64 = base64.b64encode(signature).decode()
+        
+        result = {
+            "success": True,
+            "signature": signature_b64,
+            "algorithm": f"HMAC-{algorithm}",
+            "message_length": len(message)
+        }
+        
+        return jsonify(result), 200
+    
+    except Exception as e:
+        return jsonify(create_error_response(f"Hash signing failed: {str(e)}")[0]), 500
+
+@signature_bp.route('/hash-verify', methods=['POST'])
+def hash_verify():
+    """Verify hash-based signature"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify(create_error_response("No JSON data provided")[0]), 400
+        
+        # Validate required fields
+        required_fields = ['message', 'signature', 'key']
+        is_valid, error_msg = validate_required_fields(data, required_fields)
+        if not is_valid:
+            return jsonify(create_error_response(error_msg)[0]), 400
+        
+        message = data['message']
+        signature_b64 = data['signature']
+        key = data['key']
+        algorithm = data.get('algorithm', 'SHA-256')
+        
+        # Simple hash-based signature verification
+        import hashlib
+        import hmac
+        import base64
+        
+        try:
+            signature = base64.b64decode(signature_b64)
+        except:
+            return jsonify(create_error_response("Invalid base64 signature")[0]), 400
+        
+        if algorithm == 'SHA-256':
+            expected_signature = hmac.new(key.encode(), message.encode(), hashlib.sha256).digest()
+        elif algorithm == 'SHA-384':
+            expected_signature = hmac.new(key.encode(), message.encode(), hashlib.sha384).digest()
+        elif algorithm == 'SHA-512':
+            expected_signature = hmac.new(key.encode(), message.encode(), hashlib.sha512).digest()
+        else:
+            return jsonify(create_error_response("Unsupported hash algorithm")[0]), 400
+        
+        is_valid = hmac.compare_digest(signature, expected_signature)
+        
+        result = {
+            "success": True,
+            "valid": is_valid,
+            "algorithm": f"HMAC-{algorithm}",
+            "verification_status": "Valid" if is_valid else "Invalid"
+        }
+        
+        return jsonify(result), 200
+    
+    except Exception as e:
+        return jsonify(create_error_response(f"Hash verification failed: {str(e)}")[0]), 500
+
 @signature_bp.route('/info', methods=['GET'])
 def info():
     """Get digital signature module information"""
     return jsonify({
         "module": "Digital Signatures",
-        "supported_algorithms": ["RSA", "ECC"],
+        "supported_algorithms": ["RSA", "ECC", "HMAC-SHA256", "HMAC-SHA384", "HMAC-SHA512"],
         "rsa_key_sizes": [1024, 2048, 3072, 4096],
         "ecc_curves": ["secp256r1", "secp384r1", "secp521r1"],
-        "hash_algorithm": "SHA-256",
+        "hash_algorithms": ["SHA-256", "SHA-384", "SHA-512"],
         "endpoints": {
-            "/generate-keypair": "Generate key pair for digital signatures",
-            "/sign": "Sign message using private key",
-            "/verify": "Verify digital signature",
+            "/generate-keypair": "Generate key pair for RSA/ECC digital signatures",
+            "/sign": "Sign message using RSA/ECC private key",
+            "/verify": "Verify RSA/ECC digital signature",
+            "/hash-sign": "Create hash-based signature (HMAC)",
+            "/hash-verify": "Verify hash-based signature",
             "/sign-and-verify": "Complete workflow: generate keys, sign, and verify",
             "/info": "Get module information"
         },
@@ -138,6 +240,17 @@ def info():
             "signature": "Base64 encoded signature (required)",
             "public_key": "PEM formatted public key (required)",
             "algorithm": "Algorithm type - RSA or ECC (optional, default: RSA)"
+        },
+        "hash_sign_parameters": {
+            "message": "Message to sign (required)",
+            "key": "Secret key for HMAC (required)",
+            "algorithm": "Hash algorithm - SHA-256, SHA-384, or SHA-512 (optional, default: SHA-256)"
+        },
+        "hash_verify_parameters": {
+            "message": "Original message (required)",
+            "signature": "Base64 encoded HMAC signature (required)",
+            "key": "Secret key for HMAC verification (required)",
+            "algorithm": "Hash algorithm - SHA-256, SHA-384, or SHA-512 (optional, default: SHA-256)"
         },
         "sign_and_verify_parameters": {
             "message": "Message to sign and verify (required)",

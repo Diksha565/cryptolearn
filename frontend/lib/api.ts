@@ -213,6 +213,23 @@ export const signatureAPI = {
     return apiCall<ApiResponse>('/signature/sign-and-verify', 'POST', data)
   },
 
+  hashSign: async (data: {
+    message: string
+    key: string
+    algorithm?: string
+  }) => {
+    return apiCall<ApiResponse>('/signature/hash-sign', 'POST', data)
+  },
+
+  hashVerify: async (data: {
+    message: string
+    signature: string
+    key: string
+    algorithm?: string
+  }) => {
+    return apiCall<ApiResponse>('/signature/hash-verify', 'POST', data)
+  },
+
   getInfo: async () => {
     return apiCall<ApiResponse>('/signature/info')
   }
