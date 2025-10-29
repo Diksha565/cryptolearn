@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Loader2,
   Key,
@@ -31,675 +33,907 @@ import {
   Share,
   Info,
   ArrowRightLeft,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  FileSignature,
+  Unlock,
+  Hash,
+  Zap,
 } from "lucide-react";
 import { eccAPI } from "@/lib/api";
 
 export default function ECCPage() {
+  // State management
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [result, setResult] = useState<string>("");
-  const [error, setError] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(false);
   const [metadata, setMetadata] = useState<Record<string, string | number>>({});
-  const [activeTab, setActiveTab] = useState("keygen");
 
-  // Form states for different operations
-  const [keygenData, setKeygenData] = useState({
-    curve: "secp256r1",
-    type: "ecdsa", // ecdsa or ecdh
-  });
+  // Key Generation States
+  const [keyGenCurve, setKeyGenCurve] = useState("secp256r1");
+  const [keyGenType, setKeyGenType] = useState("ecdsa");
+  const [generatedPrivateKey, setGeneratedPrivateKey] = useState("");
+  const [generatedPublicKey, setGeneratedPublicKey] = useState("");
 
-  const [signData, setSignData] = useState({
-    message: "",
-    privateKey: "",
-  });
+  // Digital Signature States
+  const [signMessage, setSignMessage] = useState("");
+  const [signPrivateKey, setSignPrivateKey] = useState("");
+  const [signature, setSignature] = useState("");
+  const [verifyMessage, setVerifyMessage] = useState("");
+  const [verifySignature, setVerifySignature] = useState("");
+  const [verifyPublicKey, setVerifyPublicKey] = useState("");
 
-  const [verifyData, setVerifyData] = useState({
-    message: "",
-    signature: "",
-    publicKey: "",
-  });
-
-  const [ecdhData, setEcdhData] = useState({
-    privateKeyA: "",
-    publicKeyBx: "",
-    publicKeyBy: "",
-    curve: "brainpoolP256r1",
-  });
-
-  const [curveInfoData, setCurveInfoData] = useState({
-    curve: "secp256r1",
-  });
+  // ECDH Key Exchange States
+  const [ecdhCurve, setEcdhCurve] = useState("secp256r1");
+  const [ecdhPrivateKeyA, setEcdhPrivateKeyA] = useState("");
+  const [ecdhPublicKeyA, setEcdhPublicKeyA] = useState("");
+  const [ecdhPrivateKeyB, setEcdhPrivateKeyB] = useState("");
+  const [ecdhPublicKeyB, setEcdhPublicKeyB] = useState("");
+  const [sharedSecret, setSharedSecret] = useState("");
 
   const curves = [
-    { value: "secp256r1", label: "secp256r1 (P-256)" },
-    { value: "secp384r1", label: "secp384r1 (P-384)" },
-    { value: "secp521r1", label: "secp521r1 (P-521)" },
-    { value: "brainpoolP256r1", label: "brainpoolP256r1" },
-    { value: "brainpoolP384r1", label: "brainpoolP384r1" },
-    { value: "brainpoolP512r1", label: "brainpoolP512r1" },
+    { value: "secp256r1", label: "secp256r1 (P-256) - Most Common", bits: 256 },
+    { value: "secp384r1", label: "secp384r1 (P-384) - High Security", bits: 384 },
+    { value: "secp521r1", label: "secp521r1 (P-521) - Maximum Security", bits: 521 },
   ];
 
-  const resetResults = () => {
+  const clearMessages = () => {
+    setError(null);
+    setSuccess(null);
     setResult("");
-    setError("");
     setMetadata({});
   };
 
-  const handleKeyGeneration = async () => {
-    setIsLoading(true);
-    resetResults();
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setSuccess(`${label} copied to clipboard!`);
+    } catch (err) {
+      setError(`Failed to copy ${label}`);
+    }
+  };
 
+  // Key Generation Handler
+  const handleGenerateKeys = async () => {
+    clearMessages();
+    setLoading(true);
+    
     try {
       let response;
-
-      if (keygenData.type === "ecdsa") {
-        response = await eccAPI.generateKeypair(keygenData.curve);
-
-        if (response.success) {
-          const formattedResult = `Private Key:\n${response.private_key}\n\nPublic Key:\n${response.public_key}`;
-          setResult(formattedResult);
-          setMetadata({
-            Algorithm: "ECDSA",
-            Curve: response.curve || keygenData.curve,
-            "Key Type": "Asymmetric",
-            "Private Key Size": `${
-              response.private_key?.length || 0
-            } characters`,
-            "Public Key Size": `${response.public_key?.length || 0} characters`,
-          });
-        } else {
-          setError(response.error || "Key generation failed");
-        }
+      if (keyGenType === "ecdh") {
+        // Use ECDH key generation endpoint
+        response = await eccAPI.generateECDHKeypair(keyGenCurve);
+        // Format ECDH keys for display
+        setGeneratedPrivateKey(response.private_key);
+        setGeneratedPublicKey(`X: ${response.public_key_x}\nY: ${response.public_key_y}`);
+        
+        // Auto-populate ECDH fields
+        setEcdhPrivateKeyA(response.private_key);
+        setEcdhPublicKeyA(`${response.public_key_x}, ${response.public_key_y}`);
       } else {
-        response = await eccAPI.generateECDHKeypair(keygenData.curve);
-
-        if (response.success) {
-          const formattedResult = `Private Key:\n${response.private_key}\n\nPublic Key X:\n${response.public_key_x}\n\nPublic Key Y:\n${response.public_key_y}`;
-          setResult(formattedResult);
-          setMetadata({
-            Algorithm: "ECDH",
-            Curve: response.curve || keygenData.curve,
-            "Key Type": "Key Exchange",
-            "Private Key": response.private_key || "Generated",
-            "Public Key Format": "Coordinate Pair (x, y)",
-          });
-        } else {
-          setError(response.error || "ECDH key generation failed");
-        }
+        // Use ECDSA key generation endpoint
+        response = await eccAPI.generateKeypair(keyGenCurve);
+        setGeneratedPrivateKey(response.private_key);
+        setGeneratedPublicKey(response.public_key);
+        
+        // Auto-populate signing fields
+        setSignPrivateKey(response.private_key);
+        setVerifyPublicKey(response.public_key);
       }
-    } catch (error: any) {
-      setError(error.message || "An error occurred during key generation");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSigning = async () => {
-    if (!signData.message || !signData.privateKey) {
-      setError("Please provide both message and private key");
-      return;
-    }
-
-    setIsLoading(true);
-    resetResults();
-
-    try {
-      const response = await eccAPI.sign({
-        message: signData.message,
-        private_key: signData.privateKey,
+      
+      setResult("Key Pair Generated Successfully");
+      setMetadata({
+        curve: keyGenCurve,
+        type: keyGenType,
+        privateKeySize: response.private_key.length,
+        publicKeySize: keyGenType === "ecdh" ? 
+          (response.public_key_x.length + response.public_key_y.length) : 
+          response.public_key.length,
+        algorithm: keyGenType === "ecdh" ? "ECDH" : "ECDSA"
       });
-
-      if (response.success) {
-        setResult(response.signature);
-        setMetadata({
-          Algorithm: "ECDSA",
-          Operation: "Digital Signature",
-          "Message Length": `${signData.message.length} characters`,
-          "Signature Format": "DER encoded",
-        });
-      } else {
-        setError(response.error || "Signing failed");
-      }
-    } catch (error: any) {
-      setError(error.message || "An error occurred during signing");
+      setSuccess("ECC key pair generated successfully! Keys auto-populated in respective fields.");
+    } catch (error) {
+      console.error("Error generating ECC keys:", error);
+      setError("Failed to generate ECC key pair. Please try again.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleVerification = async () => {
-    if (!verifyData.message || !verifyData.signature || !verifyData.publicKey) {
-      setError("Please provide message, signature, and public key");
-      return;
-    }
-
-    setIsLoading(true);
-    resetResults();
-
+  // Digital Signature Handler
+  const handleSign = async () => {
+    clearMessages();
+    setLoading(true);
+    
     try {
-      const response = await eccAPI.verify({
-        message: verifyData.message,
-        signature: verifyData.signature,
-        public_key: verifyData.publicKey,
+      if (!signMessage.trim()) {
+        setError("Please enter a message to sign");
+        return;
+      }
+      if (!signPrivateKey.trim()) {
+        setError("Please enter a private key");
+        return;
+      }
+
+      const response = await eccAPI.sign(signPrivateKey, signMessage);
+      setSignature(response.signature);
+      setResult("Message Signed Successfully");
+      setMetadata({
+        messageLength: signMessage.length,
+        signatureLength: response.signature.length,
+        algorithm: "ECDSA",
       });
-
-      if (response.success) {
-        const isValid = response.valid;
-        setResult(
-          `Signature Verification: ${isValid ? "VALID ✓" : "INVALID ✗"}`
-        );
-        setMetadata({
-          Algorithm: "ECDSA",
-          Operation: "Signature Verification",
-          Result: isValid ? "Valid" : "Invalid",
-          "Message Length": `${verifyData.message.length} characters`,
-        });
-      } else {
-        setError(response.error || "Verification failed");
-      }
-    } catch (error: any) {
-      setError(error.message || "An error occurred during verification");
+      setSuccess("Message signed successfully!");
+    } catch (error) {
+      console.error("Error signing message:", error);
+      setError("Failed to sign message. Please check your private key.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleECDHSharedSecret = async () => {
-    if (
-      !ecdhData.privateKeyA ||
-      !ecdhData.publicKeyBx ||
-      !ecdhData.publicKeyBy
-    ) {
-      setError("Please provide private key A and public key B coordinates");
-      return;
-    }
-
-    setIsLoading(true);
-    resetResults();
-
+  // Signature Verification Handler
+  const handleVerify = async () => {
+    clearMessages();
+    setLoading(true);
+    
     try {
+      if (!verifyMessage.trim()) {
+        setError("Please enter the original message");
+        return;
+      }
+      if (!verifySignature.trim()) {
+        setError("Please enter the signature to verify");
+        return;
+      }
+      if (!verifyPublicKey.trim()) {
+        setError("Please enter the public key");
+        return;
+      }
+
+      const response = await eccAPI.verify(verifyPublicKey, verifyMessage, verifySignature);
+      setResult(response.valid ? "Signature Verified ✓" : "Signature Invalid ✗");
+      setMetadata({
+        valid: response.valid,
+        algorithm: "ECDSA",
+        messageLength: verifyMessage.length,
+        signatureLength: verifySignature.length,
+      });
+      
+      if (response.valid) {
+        setSuccess("Signature is valid! The message is authentic.");
+      } else {
+        setError("Signature verification failed. The message may have been tampered with.");
+      }
+    } catch (error) {
+      console.error("Error verifying signature:", error);
+      setError("Failed to verify signature. Please check your inputs.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ECDH Key Exchange Handler
+  const handleECDH = async () => {
+    clearMessages();
+    setLoading(true);
+    
+    try {
+      if (!ecdhPrivateKeyA.trim() || !ecdhPublicKeyB.trim()) {
+        setError("Please enter both private key A and public key B");
+        return;
+      }
+
+      // Parse public key B to extract X and Y coordinates
+      // For ECDH, we expect the public key to be in hex format: "0x..." or just the hex values
+      const publicKeyBParts = ecdhPublicKeyB.split(',');
+      let public_key_b_x, public_key_b_y;
+      
+      if (publicKeyBParts.length === 2) {
+        // Format: "0x123..., 0x456..." or "123..., 456..."
+        public_key_b_x = publicKeyBParts[0].trim().replace('0x', '');
+        public_key_b_y = publicKeyBParts[1].trim().replace('0x', '');
+      } else {
+        setError("Public key B must be in format: 'x_coordinate, y_coordinate' (hex values)");
+        return;
+      }
+
       const response = await eccAPI.ecdhSharedSecret({
-        private_key_a: ecdhData.privateKeyA,
-        public_key_b_x: ecdhData.publicKeyBx,
-        public_key_b_y: ecdhData.publicKeyBy,
-        curve: ecdhData.curve,
+        private_key_a: ecdhPrivateKeyA.replace('0x', ''),
+        public_key_b_x: public_key_b_x,
+        public_key_b_y: public_key_b_y,
+        curve: ecdhCurve
       });
-
-      if (response.success) {
-        setResult(response.shared_secret);
-        setMetadata({
-          Algorithm: "ECDH",
-          Operation: "Shared Secret Calculation",
-          Curve: ecdhData.curve,
-          "Shared Secret": "Generated successfully",
-        });
-      } else {
-        setError(response.error || "Shared secret calculation failed");
-      }
-    } catch (error: any) {
-      setError(
-        error.message || "An error occurred during shared secret calculation"
-      );
+      
+      setSharedSecret(response.shared_secret_hash);
+      setResult("Shared Secret Computed Successfully");
+      setMetadata({
+        curve: ecdhCurve,
+        secretLength: response.shared_secret_hash.length,
+        algorithm: "ECDH",
+      });
+      setSuccess("ECDH shared secret computed successfully!");
+    } catch (error) {
+      console.error("Error computing ECDH shared secret:", error);
+      setError("Failed to compute shared secret. Please check your keys format.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleCurveInfo = async () => {
-    setIsLoading(true);
-    resetResults();
-
+  // Generate ECDH Key Pairs
+  const handleGenerateECDHKeys = async () => {
+    clearMessages();
+    setLoading(true);
+    
     try {
-      const response = await eccAPI.getCurveInfo(curveInfoData.curve);
-
-      if (response.success) {
-        const info = response.curve_info;
-        const formattedResult = `Curve: ${info.name}\nField Size: ${info.field_size} bits\nOrder: ${info.order}\nCofactor: ${info.cofactor}\n\nGenerator Point:\nX: ${info.generator_x}\nY: ${info.generator_y}\n\nSecurity Level: ${info.security_level} bits`;
-        setResult(formattedResult);
-        setMetadata({
-          "Curve Name": info.name,
-          "Field Size": `${info.field_size} bits`,
-          "Security Level": `${info.security_level} bits`,
-          Standard: info.standard || "Various",
-        });
-      } else {
-        setError(response.error || "Failed to get curve information");
-      }
-    } catch (error: any) {
-      setError(
-        error.message || "An error occurred while fetching curve information"
-      );
+      // Generate key pair A
+      const responseA = await eccAPI.generateECDHKeypair(ecdhCurve);
+      setEcdhPrivateKeyA(responseA.private_key);
+      setEcdhPublicKeyA(`${responseA.public_key_x}, ${responseA.public_key_y}`);
+      
+      // Generate key pair B
+      const responseB = await eccAPI.generateECDHKeypair(ecdhCurve);
+      setEcdhPrivateKeyB(responseB.private_key);
+      setEcdhPublicKeyB(`${responseB.public_key_x}, ${responseB.public_key_y}`);
+      
+      setSuccess("ECDH key pairs generated for both parties!");
+    } catch (error) {
+      console.error("Error generating ECDH keys:", error);
+      setError("Failed to generate ECDH key pairs. Please try again.");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex-1 min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50 to-teal-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b px-6 py-4">
-        <div className="flex items-center gap-4">
-          <SidebarTrigger />
-          <div>
-            <h1 className="text-2xl font-bold">
-              ECC (Elliptic Curve Cryptography)
-            </h1>
-            <p className="text-muted-foreground">
-              Modern asymmetric cryptography with smaller keys
-            </p>
-          </div>
+    <div className="flex flex-col min-h-screen w-full">
+      <div className="flex items-center p-4 border-b bg-muted/50">
+        <SidebarTrigger className="mr-4" />
+        <div className="flex items-center gap-2">
+          <Zap className="h-6 w-6 text-blue-600" />
+          <h1 className="text-2xl font-bold">
+            Elliptic Curve Cryptography (ECC)
+          </h1>
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-8 space-y-8">
+      <div className="flex-1 p-6 space-y-6">
+        {/* Introduction */}
         <ExplanationCard
-          title="ECC (Elliptic Curve Cryptography)"
-          description="A public-key cryptographic approach based on the algebraic structure of elliptic curves over finite fields."
-          theory="ECC is based on the mathematical properties of elliptic curves. The security relies on the Elliptic Curve Discrete Logarithm Problem (ECDLP), which is computationally hard to solve. ECC provides the same level of security as RSA with much smaller key sizes, making it more efficient for resource-constrained environments. The algorithm uses point multiplication on elliptic curves where finding the discrete logarithm is infeasible with current technology."
+          title="Elliptic Curve Cryptography (ECC)"
+          description="ECC provides the same security as RSA with much smaller key sizes, making it ideal for mobile and IoT devices with limited resources."
+          theory="Elliptic Curve Cryptography is based on the algebraic structure of elliptic curves over finite fields. It relies on the difficulty of the Elliptic Curve Discrete Logarithm Problem (ECDLP), which is computationally harder to solve than the integer factorization problem used in RSA. This allows ECC to achieve the same level of security with significantly smaller key sizes - a 256-bit ECC key provides equivalent security to a 3072-bit RSA key."
           useCases={[
-            "Mobile device security and IoT applications",
-            "TLS/SSL certificates and HTTPS connections",
-            "Bitcoin and cryptocurrency transactions",
+            "Mobile and IoT device security with limited processing power",
+            "Digital signatures for software and document authentication",
+            "Key exchange protocols (ECDH) for secure communications",
+            "TLS/SSL certificates for web security",
+            "Cryptocurrency transactions (Bitcoin, Ethereum)",
             "Smart card and embedded system security",
-            "Digital signatures and authentication",
-            "Key exchange protocols (ECDH)",
+            "Virtual Private Networks (VPNs)",
+            "Code signing for mobile applications"
           ]}
           pros={[
-            "Smaller key sizes compared to RSA for same security level",
-            "Faster computations and lower power consumption",
-            "Suitable for resource-constrained environments",
-            "Strong mathematical foundation with no known attacks",
-            "Supports both digital signatures (ECDSA) and key exchange (ECDH)",
+            "Smaller key sizes reduce storage and bandwidth requirements",
+            "Faster key generation and digital signature operations",
+            "Lower computational overhead and power consumption",
+            "Equivalent security to RSA with 10x smaller keys",
+            "Better performance on mobile and embedded devices",
+            "Shorter certificate chains reduce network overhead",
+            "Future-resistant against quantum computing advances"
           ]}
           cons={[
-            "More complex mathematical implementation",
-            "Potential vulnerability to quantum computers",
-            "Curve parameter selection is critical for security",
-            "Less widely understood than traditional RSA",
-            "Side-channel attack considerations in implementation",
+            "More complex mathematical operations than RSA",
+            "Limited choice of standardized curves",
+            "Potential implementation vulnerabilities if not done correctly",
+            "Some curves may have government backdoors",
+            "Requires careful selection of curve parameters",
+            "Less widely understood than RSA among developers"
           ]}
           complexity="High"
           keySize="256-521 bits"
-        />
-
-        <div className="grid lg:grid-cols-2 gap-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Key className="h-5 w-5" />
-                ECC Operations
-              </CardTitle>
-              <CardDescription>
-                Perform various elliptic curve cryptographic operations
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs
-                value={activeTab}
-                onValueChange={setActiveTab}
-                className="w-full"
-              >
-                <TabsList className="grid w-full grid-cols-5">
-                  <TabsTrigger value="keygen" className="text-xs">
-                    <Key className="h-3 w-3 mr-1" />
-                    Keys
-                  </TabsTrigger>
-                  <TabsTrigger value="sign" className="text-xs">
-                    <Shield className="h-3 w-3 mr-1" />
-                    Sign
-                  </TabsTrigger>
-                  <TabsTrigger value="verify" className="text-xs">
-                    <Shield className="h-3 w-3 mr-1" />
-                    Verify
-                  </TabsTrigger>
-                  <TabsTrigger value="ecdh" className="text-xs">
-                    <Share className="h-3 w-3 mr-1" />
-                    ECDH
-                  </TabsTrigger>
-                  <TabsTrigger value="info" className="text-xs">
-                    <Info className="h-3 w-3 mr-1" />
-                    Info
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="keygen" className="space-y-4">
-                  <div>
-                    <Label htmlFor="keyType">Key Type</Label>
-                    <Select
-                      value={keygenData.type}
-                      onValueChange={(value) =>
-                        setKeygenData((prev) => ({ ...prev, type: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="ecdsa">
-                          ECDSA (Digital Signature)
-                        </SelectItem>
-                        <SelectItem value="ecdh">
-                          ECDH (Key Exchange)
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="curve">Elliptic Curve</Label>
-                    <Select
-                      value={keygenData.curve}
-                      onValueChange={(value) =>
-                        setKeygenData((prev) => ({ ...prev, curve: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {curves.map((curve) => (
-                          <SelectItem key={curve.value} value={curve.value}>
-                            {curve.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Button
-                    onClick={handleKeyGeneration}
-                    disabled={isLoading}
-                    className="w-full"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Key className="h-4 w-4 mr-2" />
-                    )}
-                    Generate {keygenData.type.toUpperCase()} Key Pair
-                  </Button>
-                </TabsContent>
-
-                <TabsContent value="sign" className="space-y-4">
-                  <div>
-                    <Label htmlFor="signMessage">Message to Sign</Label>
-                    <Textarea
-                      id="signMessage"
-                      placeholder="Enter message to sign..."
-                      value={signData.message}
-                      onChange={(e) =>
-                        setSignData((prev) => ({
-                          ...prev,
-                          message: e.target.value,
-                        }))
-                      }
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="signPrivateKey">Private Key</Label>
-                    <Textarea
-                      id="signPrivateKey"
-                      placeholder="Enter ECDSA private key..."
-                      value={signData.privateKey}
-                      onChange={(e) =>
-                        setSignData((prev) => ({
-                          ...prev,
-                          privateKey: e.target.value,
-                        }))
-                      }
-                      rows={4}
-                    />
-                  </div>
-
-                  <Button
-                    onClick={handleSigning}
-                    disabled={isLoading}
-                    className="w-full"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Shield className="h-4 w-4 mr-2" />
-                    )}
-                    Sign Message
-                  </Button>
-                </TabsContent>
-
-                <TabsContent value="verify" className="space-y-4">
-                  <div>
-                    <Label htmlFor="verifyMessage">Original Message</Label>
-                    <Textarea
-                      id="verifyMessage"
-                      placeholder="Enter original message..."
-                      value={verifyData.message}
-                      onChange={(e) =>
-                        setVerifyData((prev) => ({
-                          ...prev,
-                          message: e.target.value,
-                        }))
-                      }
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="signature">Signature</Label>
-                    <Textarea
-                      id="signature"
-                      placeholder="Enter signature to verify..."
-                      value={verifyData.signature}
-                      onChange={(e) =>
-                        setVerifyData((prev) => ({
-                          ...prev,
-                          signature: e.target.value,
-                        }))
-                      }
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="verifyPublicKey">Public Key</Label>
-                    <Textarea
-                      id="verifyPublicKey"
-                      placeholder="Enter ECDSA public key..."
-                      value={verifyData.publicKey}
-                      onChange={(e) =>
-                        setVerifyData((prev) => ({
-                          ...prev,
-                          publicKey: e.target.value,
-                        }))
-                      }
-                      rows={4}
-                    />
-                  </div>
-
-                  <Button
-                    onClick={handleVerification}
-                    disabled={isLoading}
-                    className="w-full"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Shield className="h-4 w-4 mr-2" />
-                    )}
-                    Verify Signature
-                  </Button>
-                </TabsContent>
-
-                <TabsContent value="ecdh" className="space-y-4">
-                  <div>
-                    <Label htmlFor="ecdhCurve">Curve</Label>
-                    <Select
-                      value={ecdhData.curve}
-                      onValueChange={(value) =>
-                        setEcdhData((prev) => ({ ...prev, curve: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {curves.map((curve) => (
-                          <SelectItem key={curve.value} value={curve.value}>
-                            {curve.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="privateKeyA">Your Private Key</Label>
-                    <Input
-                      id="privateKeyA"
-                      placeholder="Enter your private key..."
-                      value={ecdhData.privateKeyA}
-                      onChange={(e) =>
-                        setEcdhData((prev) => ({
-                          ...prev,
-                          privateKeyA: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="publicKeyBx">
-                      Other Party's Public Key X
-                    </Label>
-                    <Input
-                      id="publicKeyBx"
-                      placeholder="Enter public key X coordinate..."
-                      value={ecdhData.publicKeyBx}
-                      onChange={(e) =>
-                        setEcdhData((prev) => ({
-                          ...prev,
-                          publicKeyBx: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="publicKeyBy">
-                      Other Party's Public Key Y
-                    </Label>
-                    <Input
-                      id="publicKeyBy"
-                      placeholder="Enter public key Y coordinate..."
-                      value={ecdhData.publicKeyBy}
-                      onChange={(e) =>
-                        setEcdhData((prev) => ({
-                          ...prev,
-                          publicKeyBy: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <Button
-                    onClick={handleECDHSharedSecret}
-                    disabled={isLoading}
-                    className="w-full"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <ArrowRightLeft className="h-4 w-4 mr-2" />
-                    )}
-                    Calculate Shared Secret
-                  </Button>
-                </TabsContent>
-
-                <TabsContent value="info" className="space-y-4">
-                  <div>
-                    <Label htmlFor="infoCurve">Select Curve</Label>
-                    <Select
-                      value={curveInfoData.curve}
-                      onValueChange={(value) =>
-                        setCurveInfoData((prev) => ({ ...prev, curve: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {curves.map((curve) => (
-                          <SelectItem key={curve.value} value={curve.value}>
-                            {curve.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Button
-                    onClick={handleCurveInfo}
-                    disabled={isLoading}
-                    className="w-full"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Info className="h-4 w-4 mr-2" />
-                    )}
-                    Get Curve Information
-                  </Button>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
-
-          <OutputDisplay
-            title="ECC Result"
-            result={result}
-            error={error}
-            metadata={metadata}
-            isLoading={isLoading}
-          />
-        </div>
-
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5" />
-              ECC vs RSA Comparison
-            </CardTitle>
-            <CardDescription>
-              Understanding the advantages of Elliptic Curve Cryptography
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="text-center p-4 border rounded-lg">
-                <Badge variant="secondary" className="mb-2">
-                  ECC-256
-                </Badge>
+        >
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Key className="h-5 w-5 text-green-600" />
+                  <h4 className="font-semibold">Smaller Keys</h4>
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  Equivalent security to RSA-3072 with 256-bit keys
+                  256-bit ECC key ≈ 3072-bit RSA key
                 </p>
-              </div>
-              <div className="text-center p-4 border rounded-lg">
-                <Badge variant="secondary" className="mb-2">
-                  Performance
-                </Badge>
+              </Card>
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Shield className="h-5 w-5 text-blue-600" />
+                  <h4 className="font-semibold">Strong Security</h4>
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  Faster operations and lower power consumption
+                  Based on discrete logarithm problem
                 </p>
-              </div>
-              <div className="text-center p-4 border rounded-lg">
-                <Badge variant="secondary" className="mb-2">
-                  Applications
-                </Badge>
+              </Card>
+              <Card className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap className="h-5 w-5 text-purple-600" />
+                  <h4 className="font-semibold">Efficient</h4>
+                </div>
                 <p className="text-sm text-muted-foreground">
-                  IoT, mobile devices, and blockchain technology
+                  Faster computation and lower memory usage
                 </p>
-              </div>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </ExplanationCard>
+
+        {/* Main Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <Tabs defaultValue="keygen" className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="keygen" className="flex items-center gap-2">
+                  <Key className="h-4 w-4" />
+                  Key Generation
+                </TabsTrigger>
+                <TabsTrigger value="signature" className="flex items-center gap-2">
+                  <FileSignature className="h-4 w-4" />
+                  Digital Signature
+                </TabsTrigger>
+                <TabsTrigger value="verify" className="flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Verify Signature
+                </TabsTrigger>
+                <TabsTrigger value="ecdh" className="flex items-center gap-2">
+                  <Share className="h-4 w-4" />
+                  ECDH Exchange
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Key Generation Tab */}
+              <TabsContent value="keygen">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Key className="h-5 w-5" />
+                      ECC Key Generation
+                    </CardTitle>
+                    <CardDescription>
+                      Generate ECC key pairs for digital signatures or key exchange
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="curve">Elliptic Curve</Label>
+                        <Select value={keyGenCurve} onValueChange={setKeyGenCurve}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {curves.map((curve) => (
+                              <SelectItem key={curve.value} value={curve.value}>
+                                {curve.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="keyType">Key Type</Label>
+                        <Select value={keyGenType} onValueChange={setKeyGenType}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ecdsa">ECDSA (Digital Signature)</SelectItem>
+                            <SelectItem value="ecdh">ECDH (Key Exchange)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={handleGenerateKeys}
+                      disabled={loading}
+                      className="w-full"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating Keys...
+                        </>
+                      ) : (
+                        <>
+                          <Key className="mr-2 h-4 w-4" />
+                          Generate Key Pair
+                        </>
+                      )}
+                    </Button>
+
+                    {/* Generated Keys Display */}
+                    {generatedPrivateKey && (
+                      <div className="space-y-4">
+                        <Separator />
+                        <div className="space-y-3">
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <Label className="text-sm font-medium">Private Key</Label>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => copyToClipboard(generatedPrivateKey, "Private Key")}
+                              >
+                                Copy
+                              </Button>
+                            </div>
+                            <Textarea
+                              value={generatedPrivateKey}
+                              readOnly
+                              className="font-mono text-xs"
+                              rows={3}
+                            />
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <Label className="text-sm font-medium">Public Key</Label>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => copyToClipboard(generatedPublicKey, "Public Key")}
+                              >
+                                Copy
+                              </Button>
+                            </div>
+                            <Textarea
+                              value={generatedPublicKey}
+                              readOnly
+                              className="font-mono text-xs"
+                              rows={4}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Digital Signature Tab */}
+              <TabsContent value="signature">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileSignature className="h-5 w-5" />
+                      ECDSA Digital Signature
+                    </CardTitle>
+                    <CardDescription>
+                      Sign a message using ECDSA with your private key
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signMessage">Message to Sign</Label>
+                      <Textarea
+                        id="signMessage"
+                        placeholder="Enter the message you want to sign..."
+                        value={signMessage}
+                        onChange={(e) => setSignMessage(e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="signPrivateKey">Private Key</Label>
+                        {signPrivateKey && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyToClipboard(signPrivateKey, "Private Key")}
+                          >
+                            Copy
+                          </Button>
+                        )}
+                      </div>
+                      <Textarea
+                        id="signPrivateKey"
+                        placeholder="Enter your private key (PEM format)... (Auto-filled when keys are generated)"
+                        value={signPrivateKey}
+                        onChange={(e) => setSignPrivateKey(e.target.value)}
+                        className="font-mono text-xs"
+                        rows={4}
+                      />
+                    </div>
+
+                    <Button
+                      onClick={handleSign}
+                      disabled={loading || !signMessage.trim() || !signPrivateKey.trim()}
+                      className="w-full"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Signing Message...
+                        </>
+                      ) : (
+                        <>
+                          <FileSignature className="mr-2 h-4 w-4" />
+                          Sign Message
+                        </>
+                      )}
+                    </Button>
+
+                    {/* Signature Display */}
+                    {signature && (
+                      <div className="space-y-3">
+                        <Separator />
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-sm font-medium">Digital Signature</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => copyToClipboard(signature, "Signature")}
+                            >
+                              Copy
+                            </Button>
+                          </div>
+                          <Textarea
+                            value={signature}
+                            readOnly
+                            className="font-mono text-xs"
+                            rows={4}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Signature Verification Tab */}
+              <TabsContent value="verify">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Shield className="h-5 w-5" />
+                      Verify ECDSA Signature
+                    </CardTitle>
+                    <CardDescription>
+                      Verify the authenticity of a signed message
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="verifyMessage">Original Message</Label>
+                      <Textarea
+                        id="verifyMessage"
+                        placeholder="Enter the original message..."
+                        value={verifyMessage}
+                        onChange={(e) => setVerifyMessage(e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="verifySignature">Signature</Label>
+                      <Textarea
+                        id="verifySignature"
+                        placeholder="Enter the signature to verify..."
+                        value={verifySignature}
+                        onChange={(e) => setVerifySignature(e.target.value)}
+                        className="font-mono text-xs"
+                        rows={4}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="verifyPublicKey">Public Key</Label>
+                        {verifyPublicKey && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyToClipboard(verifyPublicKey, "Public Key")}
+                          >
+                            Copy
+                          </Button>
+                        )}
+                      </div>
+                      <Textarea
+                        id="verifyPublicKey"
+                        placeholder="Enter the public key (PEM format)... (Auto-filled when keys are generated)"
+                        value={verifyPublicKey}
+                        onChange={(e) => setVerifyPublicKey(e.target.value)}
+                        className="font-mono text-xs"
+                        rows={4}
+                      />
+                    </div>
+
+                    <Button
+                      onClick={handleVerify}
+                      disabled={loading || !verifyMessage.trim() || !verifySignature.trim() || !verifyPublicKey.trim()}
+                      className="w-full"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Verifying Signature...
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="mr-2 h-4 w-4" />
+                          Verify Signature
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* ECDH Key Exchange Tab */}
+              <TabsContent value="ecdh">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Share className="h-5 w-5" />
+                      ECDH Key Exchange
+                    </CardTitle>
+                    <CardDescription>
+                      Establish a shared secret between two parties using ECDH
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="ecdhCurve">Elliptic Curve</Label>
+                      <Select value={ecdhCurve} onValueChange={setEcdhCurve}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {curves.map((curve) => (
+                            <SelectItem key={curve.value} value={curve.value}>
+                              {curve.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <Button
+                      onClick={handleGenerateECDHKeys}
+                      disabled={loading}
+                      className="w-full"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating Keys...
+                        </>
+                      ) : (
+                        <>
+                          <Key className="mr-2 h-4 w-4" />
+                          Generate Key Pairs for Both Parties
+                        </>
+                      )}
+                    </Button>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-sm">Party A</h4>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="ecdhPrivateKeyA">Private Key A</Label>
+                            {ecdhPrivateKeyA && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => copyToClipboard(ecdhPrivateKeyA, "Private Key A")}
+                              >
+                                Copy
+                              </Button>
+                            )}
+                          </div>
+                          <Textarea
+                            id="ecdhPrivateKeyA"
+                            placeholder="Private key for Party A (Auto-filled when keys are generated)"
+                            value={ecdhPrivateKeyA}
+                            onChange={(e) => setEcdhPrivateKeyA(e.target.value)}
+                            className="font-mono text-xs"
+                            rows={3}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="ecdhPublicKeyA">Public Key A</Label>
+                            {ecdhPublicKeyA && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => copyToClipboard(ecdhPublicKeyA, "Public Key A")}
+                              >
+                                Copy
+                              </Button>
+                            )}
+                          </div>
+                          <Textarea
+                            id="ecdhPublicKeyA"
+                            placeholder="Public key for Party A (Auto-filled when keys are generated)"
+                            value={ecdhPublicKeyA}
+                            onChange={(e) => setEcdhPublicKeyA(e.target.value)}
+                            className="font-mono text-xs"
+                            rows={3}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <h4 className="font-semibold text-sm">Party B</h4>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="ecdhPrivateKeyB">Private Key B</Label>
+                            {ecdhPrivateKeyB && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => copyToClipboard(ecdhPrivateKeyB, "Private Key B")}
+                              >
+                                Copy
+                              </Button>
+                            )}
+                          </div>
+                          <Textarea
+                            id="ecdhPrivateKeyB"
+                            placeholder="Private key for Party B (Auto-filled when keys are generated)"
+                            value={ecdhPrivateKeyB}
+                            onChange={(e) => setEcdhPrivateKeyB(e.target.value)}
+                            className="font-mono text-xs"
+                            rows={3}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label htmlFor="ecdhPublicKeyB">Public Key B</Label>
+                            {ecdhPublicKeyB && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => copyToClipboard(ecdhPublicKeyB, "Public Key B")}
+                              >
+                                Copy
+                              </Button>
+                            )}
+                          </div>
+                          <Textarea
+                            id="ecdhPublicKeyB"
+                            placeholder="Public key for Party B (Auto-filled when keys are generated)"
+                            value={ecdhPublicKeyB}
+                            onChange={(e) => setEcdhPublicKeyB(e.target.value)}
+                            className="font-mono text-xs"
+                            rows={3}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={handleECDH}
+                      disabled={loading || !ecdhPrivateKeyA.trim() || !ecdhPublicKeyB.trim()}
+                      className="w-full"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Computing Shared Secret...
+                        </>
+                      ) : (
+                        <>
+                          <ArrowRightLeft className="mr-2 h-4 w-4" />
+                          Compute Shared Secret
+                        </>
+                      )}
+                    </Button>
+
+                    {/* Shared Secret Display */}
+                    {sharedSecret && (
+                      <div className="space-y-3">
+                        <Separator />
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <Label className="text-sm font-medium">Shared Secret</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => copyToClipboard(sharedSecret, "Shared Secret")}
+                            >
+                              Copy
+                            </Button>
+                          </div>
+                          <Textarea
+                            value={sharedSecret}
+                            readOnly
+                            className="font-mono text-xs"
+                            rows={3}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Results Panel */}
+          <div className="space-y-6">
+            {/* Status Messages */}
+            {error && (
+              <Alert className="border-red-200 bg-red-50">
+                <XCircle className="h-4 w-4 text-red-600" />
+                <AlertDescription className="text-red-800">
+                  {error}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {success && (
+              <Alert className="border-green-200 bg-green-50">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  {success}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Result Display */}
+            {result && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Info className="h-5 w-5" />
+                    Operation Result
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="p-3 bg-muted rounded-lg">
+                      <p className="font-medium">{result}</p>
+                    </div>
+
+                    {Object.keys(metadata).length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">Details:</h4>
+                        <div className="space-y-1">
+                          {Object.entries(metadata).map(([key, value]) => (
+                            <div
+                              key={key}
+                              className="flex justify-between text-sm"
+                            >
+                              <span className="capitalize">
+                                {key.replace(/([A-Z])/g, " $1").trim()}:
+                              </span>
+                              <Badge variant="outline">
+                                {typeof value === "boolean" 
+                                  ? (value ? "✓" : "✗")
+                                  : value
+                                }
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+
+          </div>
+        </div>
       </div>
     </div>
   );

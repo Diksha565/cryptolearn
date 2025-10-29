@@ -144,20 +144,20 @@ export const eccAPI = {
   },
 
   // ECDSA Signing
-  sign: async (data: {
-    message: string
-    private_key: string
-  }) => {
-    return apiCall<ApiResponse>('/ecc/sign', 'POST', data)
+  sign: async (private_key: string, message: string) => {
+    return apiCall<ApiResponse>('/ecc/sign', 'POST', {
+      message: message,
+      private_key: private_key
+    })
   },
 
   // ECDSA Verification
-  verify: async (data: {
-    message: string
-    signature: string
-    public_key: string
-  }) => {
-    return apiCall<ApiResponse>('/ecc/verify', 'POST', data)
+  verify: async (public_key: string, message: string, signature: string) => {
+    return apiCall<ApiResponse>('/ecc/verify', 'POST', {
+      message: message,
+      signature: signature,
+      public_key: public_key
+    })
   },
 
   // Get Curve Information

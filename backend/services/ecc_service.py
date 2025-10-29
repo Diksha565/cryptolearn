@@ -251,7 +251,7 @@ class ECCService:
                 is_valid = False
             
             return create_success_response({
-                "is_valid": is_valid,
+                "valid": is_valid,
                 "message": message,
                 "curve": public_key.curve.name,
                 "key_size": public_key.curve.key_size,
@@ -356,58 +356,6 @@ class ECCService:
         
         except Exception as e:
             return create_error_response(f"Comparison failed: {str(e)}")
-    
-    @staticmethod
-    def verify(message: str, signature: str, public_key_pem: str):
-        """
-        Verify a signature using ECC public key (ECDSA)
-        
-        Args:
-            message: Original message
-            signature: Base64 encoded signature
-            public_key_pem: PEM formatted public key
-        
-        Returns:
-            Tuple of (result_dict, status_code)
-        """
-        try:
-            if not message or not signature or not public_key_pem:
-                return create_error_response("Message, signature, and public key are required")
-            
-            # Load public key
-            public_key = serialization.load_pem_public_key(
-                public_key_pem.encode('utf-8'),
-                backend=default_backend()
-            )
-            
-            # Verify signature
-            message_bytes = message.encode('utf-8')
-            signature_bytes = decode_base64(signature)
-            
-            try:
-                public_key.verify(
-                    signature_bytes,
-                    message_bytes,
-                    ec.ECDSA(hashes.SHA256())
-                )
-                
-                return create_success_response({
-                    "valid": True,
-                    "message": message,
-                    "curve": public_key.curve.name,
-                    "key_size": public_key.curve.key_size
-                })
-            
-            except Exception:
-                return create_success_response({
-                    "valid": False,
-                    "message": message,
-                    "curve": public_key.curve.name,
-                    "key_size": public_key.curve.key_size
-                })
-        
-        except Exception as e:
-            return create_error_response(f"Verification failed: {str(e)}")
     
     @staticmethod
     def generate_shared_secret(private_key_pem: str, public_key_pem: str):

@@ -17,7 +17,7 @@ class AESService:
     @staticmethod
     def _prepare_iv() -> bytes:
         """Generate random IV for CBC mode"""
-        return get_random_bytes(16)  # AES block size is always 16 bytes
+        return get_random_bytes(16)  # AES block size is 16 bytes
     
     @staticmethod
     def encrypt(plaintext: str, key: str, mode: str = 'CBC', key_size: int = 256, iv: str = None):

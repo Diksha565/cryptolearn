@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -10,7 +9,6 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +19,6 @@ import {
   FileSignature,
   ImageIcon,
   Eye,
-  Check,
   X,
 } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -54,39 +51,6 @@ const topics = [
 export function AppSidebar() {
   const pathname = usePathname();
   const { setOpen } = useSidebar();
-  const [completedTopics, setCompletedTopics] = useState<Set<string>>(
-    new Set()
-  );
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    const completed = localStorage.getItem("cryptolearn-completed");
-    if (completed) {
-      setCompletedTopics(new Set(JSON.parse(completed)));
-    }
-  }, []);
-
-  useEffect(() => {
-    // Mark current topic as visited
-    const currentTopic = topics.find((topic) => topic.href === pathname);
-    if (currentTopic && currentTopic.id !== "home") {
-      // Only update if the topic isn't already completed
-      if (!completedTopics.has(currentTopic.id)) {
-        const newCompleted = new Set(completedTopics);
-        newCompleted.add(currentTopic.id);
-        setCompletedTopics(newCompleted);
-        localStorage.setItem(
-          "cryptolearn-completed",
-          JSON.stringify(Array.from(newCompleted))
-        );
-      }
-    }
-  }, [pathname]); // Remove completedTopics from dependencies
-
-  if (!mounted) {
-    return null;
-  }
 
   return (
     <Sidebar className="border-r">
@@ -120,7 +84,6 @@ export function AppSidebar() {
           {topics.map((topic) => {
             const Icon = topic.icon;
             const isActive = pathname === topic.href;
-            const isCompleted = completedTopics.has(topic.id);
 
             return (
               <SidebarMenuItem key={topic.id}>
@@ -131,9 +94,6 @@ export function AppSidebar() {
                   >
                     <Icon className="w-4 h-4" />
                     <span className="flex-1">{topic.name}</span>
-                    {isCompleted && topic.id !== "home" && (
-                      <Check className="w-4 h-4 text-green-500" />
-                    )}
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -141,12 +101,6 @@ export function AppSidebar() {
           })}
         </SidebarMenu>
       </SidebarContent>
-
-      <SidebarFooter className="p-4">
-        <div className="text-sm text-muted-foreground text-center">
-          {completedTopics.size}/6 Topics Complete
-        </div>
-      </SidebarFooter>
     </Sidebar>
   );
 }
