@@ -1,13 +1,24 @@
 import os
 import logging
+import secrets
+from datetime import timedelta
 from flask_cors import CORS
 
 class Config:
     """Configuration class for CryptoLearn Flask application"""
     
     # Flask configuration
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'cryptolearn-secret-key-change-in-production'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
     DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
+    
+    # Session configuration
+    SESSION_TYPE = 'filesystem'
+    SESSION_PERMANENT = True
+    SESSION_USE_SIGNER = True
+    PERMANENT_SESSION_LIFETIME = timedelta(days=7)  # Sessions last 7 days
+    SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
     
     # File upload configuration
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size

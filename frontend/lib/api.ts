@@ -19,6 +19,7 @@ async function apiCall<T>(
   
   const config: RequestInit = {
     method,
+    credentials: 'include', // Include cookies for session management
     headers: isFormData ? {} : {
       'Content-Type': 'application/json',
     },
@@ -381,6 +382,42 @@ export const watermarkAPI = {
 
   getInfo: async () => {
     return apiCall<ApiResponse>('/watermark/info')
+  }
+}
+
+// Authentication API functions
+export const authApi = {
+  register: async (data: {
+    username: string
+    email: string
+    password: string
+    full_name?: string
+  }) => {
+    return apiCall<ApiResponse>('/auth/register', 'POST', data)
+  },
+
+  login: async (username: string, password: string) => {
+    return apiCall<ApiResponse>('/auth/login', 'POST', { username, password })
+  },
+
+  logout: async () => {
+    return apiCall<ApiResponse>('/auth/logout', 'POST')
+  },
+
+  getCurrentUser: async () => {
+    return apiCall<ApiResponse>('/auth/me')
+  },
+
+  checkAuth: async () => {
+    return apiCall<ApiResponse>('/auth/check')
+  },
+
+  getAllUsers: async () => {
+    return apiCall<ApiResponse>('/auth/users')
+  },
+
+  getInfo: async () => {
+    return apiCall<ApiResponse>('/auth/info')
   }
 }
 

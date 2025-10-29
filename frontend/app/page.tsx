@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -16,11 +19,12 @@ import {
   ImageIcon,
   Eye,
   ArrowRight,
-  BookOpen,
-  Users,
-  Award,
+  LogIn,
+  UserPlus,
+  LogOut,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useAuth } from "@/components/providers/auth-provider";
 
 const topics = [
   {
@@ -85,13 +89,9 @@ const topics = [
   },
 ];
 
-const stats = [
-  { icon: BookOpen, label: "Interactive Lessons", value: "6" },
-  { icon: Users, label: "Students Learning", value: "10K+" },
-  { icon: Award, label: "Completion Rate", value: "94%" },
-];
-
 export default function HomePage() {
+  const { user, loading, logout } = useAuth();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Navigation */}
@@ -104,7 +104,43 @@ export default function HomePage() {
               </div>
               <span className="text-xl font-bold">CryptoLearn</span>
             </div>
-            <ThemeToggle />
+            <div className="flex items-center gap-3">
+              {!loading && (
+                <>
+                  {user ? (
+                    <>
+                      <span className="text-sm text-muted-foreground hidden sm:inline">
+                        Welcome, <span className="font-medium">{user.username}</span>
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={logout}
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        Logout
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href="/login">
+                          <LogIn className="mr-2 h-4 w-4" />
+                          Login
+                        </Link>
+                      </Button>
+                      <Button variant="default" size="sm" asChild>
+                        <Link href="/signup">
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          Sign Up
+                        </Link>
+                      </Button>
+                    </>
+                  )}
+                </>
+              )}
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </nav>
@@ -140,28 +176,18 @@ export default function HomePage() {
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-2 border-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+                asChild
+              >
+                <Link href="/layered">
+                  <Zap className="mr-2 h-4 w-4" />
+                  Layered Security
+                </Link>
+              </Button>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Section */}
-      <div className="px-6 py-16 sm:px-12 lg:px-16">
-        <div className="mx-auto max-w-6xl">
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-purple-600">
-                  <stat.icon className="h-8 w-8 text-white" />
-                </div>
-                <div className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {stat.value}
-                </div>
-                <div className="text-gray-600 dark:text-gray-300">
-                  {stat.label}
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       </div>

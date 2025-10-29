@@ -20,6 +20,7 @@ import {
   ImageIcon,
   Eye,
   X,
+  Layers,
 } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 
@@ -46,11 +47,17 @@ const topics = [
     href: "/steganography",
     icon: Eye,
   },
+  {
+    id: "layered",
+    name: "Layered Security",
+    href: "/layered",
+    icon: Layers,
+  },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { setOpen } = useSidebar();
+  const { setOpen, open } = useSidebar();
 
   return (
     <Sidebar className="border-r">
@@ -70,11 +77,11 @@ export function AppSidebar() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setOpen(false)}
-            className="h-8 w-8"
+            onClick={() => setOpen(!open)}
+            className="h-8 w-8 md:hidden"
+            aria-label="Toggle sidebar"
           >
             <X className="h-4 w-4" />
-            <span className="sr-only">Close sidebar</span>
           </Button>
         </div>
       </SidebarHeader>

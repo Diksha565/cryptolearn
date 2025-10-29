@@ -1,6 +1,11 @@
 from flask import Flask, jsonify
+from flask_cors import CORS
 from config.config import Config
 import os
+import sys
+
+# Add the project root to the Python path
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Import all blueprints
 from routes.aes import aes_bp
@@ -9,6 +14,9 @@ from routes.ecc import ecc_bp
 from routes.signature import signature_bp
 from routes.steganography import steganography_bp
 from routes.watermark import watermark_bp
+from routes.layered import layered_bp
+from routes.layered_image import layered_image_bp
+from routes.auth import auth_bp
 
 def create_app():
     """Create and configure the Flask application"""
@@ -20,6 +28,12 @@ def create_app():
     # Initialize app with configuration
     Config.init_app(app)
     
+    # Enable CORS for all domains on all routes
+    CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"], 
+         methods=["GET", "POST", "OPTIONS"],
+         allow_headers=["Content-Type", "Authorization"],
+         supports_credentials=True)
+    
     # Register blueprints
     app.register_blueprint(aes_bp)
     app.register_blueprint(rsa_bp)
@@ -27,6 +41,9 @@ def create_app():
     app.register_blueprint(signature_bp)
     app.register_blueprint(steganography_bp)
     app.register_blueprint(watermark_bp)
+    app.register_blueprint(layered_bp)
+    app.register_blueprint(layered_image_bp)
+    app.register_blueprint(auth_bp)
     
     # Root endpoint
     @app.route('/')
@@ -42,7 +59,10 @@ def create_app():
                 "ECC": "/api/ecc",
                 "Digital Signatures": "/api/signature",
                 "Steganography": "/api/steganography",
-                "Watermarking": "/api/watermark"
+                "Watermarking": "/api/watermark",
+                "Layered Encryption": "/api/layered",
+                "Layered Image": "/api/layered-image",
+                "Authentication": "/api/auth"
             },
             "endpoints": {
                 "/": "API information (this endpoint)",

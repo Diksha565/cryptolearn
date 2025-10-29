@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { AuthProvider } from "@/components/providers/auth-provider";
 import { AppLayoutWrapper } from "@/components/layout/app-layout-wrapper";
 import { Toaster } from "sonner";
 
@@ -29,8 +30,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AppLayoutWrapper>{children}</AppLayoutWrapper>
-          <Toaster position="top-right" />
+          <AuthProvider>
+            <AppLayoutWrapper>{children}</AppLayoutWrapper>
+            <Toaster position="top-right" />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

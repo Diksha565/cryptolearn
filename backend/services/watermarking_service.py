@@ -262,14 +262,31 @@ class WatermarkingService:
             watermark_length = len(watermark_binary)
             
             # Select positions for embedding (avoiding DC and high-frequency components)
+            # Use more of the coefficient space to support longer watermarks
             positions = []
-            for i in range(1, min(rows//2, int(np.sqrt(watermark_length)) + 1)):
-                for j in range(1, min(cols//2, int(np.sqrt(watermark_length)) + 1)):
+            max_range_i = min(rows//2, 100)  # Use up to 100 rows
+            max_range_j = min(cols//2, 100)  # Use up to 100 cols
+            
+            for i in range(1, max_range_i):
+                for j in range(1, max_range_j):
                     if len(positions) < watermark_length:
                         positions.append((i, j))
+                    else:
+                        break
+                if len(positions) >= watermark_length:
+                    break
             
             if len(positions) < watermark_length:
-                return create_error_response("Image too small for the watermark text")
+                # Truncate watermark text if image is too small
+                max_chars = len(positions) // 8
+                if max_chars < 3:
+                    return create_error_response(f"Image too small. Minimum size: 100x100 pixels. Current: {image.width}x{image.height}")
+                
+                # Truncate the watermark text
+                watermark_text = watermark_text[:max_chars]
+                watermark_binary = ''.join(format(ord(char), '08b') for char in watermark_text)
+                watermark_length = len(watermark_binary)
+                print(f"[WARNING] Watermark truncated to {max_chars} characters to fit image")
             
             # Embed watermark bits
             for idx, bit in enumerate(watermark_binary):
@@ -343,16 +360,26 @@ class WatermarkingService:
             # Calculate expected watermark bit length
             watermark_bits = watermark_length * 8
             
-            # Get the same positions used for embedding
+            # Get the same positions used for embedding (must match embedding algorithm)
             rows, cols = dct_coeffs.shape
             positions = []
-            for i in range(1, min(rows//2, int(np.sqrt(watermark_bits)) + 1)):
-                for j in range(1, min(cols//2, int(np.sqrt(watermark_bits)) + 1)):
+            max_range_i = min(rows//2, 100)  # Match embedding range
+            max_range_j = min(cols//2, 100)  # Match embedding range
+            
+            for i in range(1, max_range_i):
+                for j in range(1, max_range_j):
                     if len(positions) < watermark_bits:
                         positions.append((i, j))
+                    else:
+                        break
+                if len(positions) >= watermark_bits:
+                    break
             
             if len(positions) < watermark_bits:
-                return create_error_response("Cannot extract watermark: insufficient embedding positions")
+                # Extract what we can
+                watermark_bits = len(positions)
+                watermark_length = watermark_bits // 8
+                print(f"[WARNING] Can only extract {watermark_length} characters from this image")
             
             # Extract watermark bits (this is a simplified extraction)
             extracted_bits = []
