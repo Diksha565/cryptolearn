@@ -19,7 +19,7 @@ from .rsa_service import RSAService
 from .ecc_service import ECCService
 from .signature_service import SignatureService
 from .text_watermarking_service import TextWatermarkingService
-from .text_steganography_service import TextSteganographyService
+from .linguistic_steganography_service import LinguisticSteganographyService
 
 
 class AdvancedLayeredService:
@@ -298,18 +298,18 @@ class AdvancedLayeredService:
             print(f"[OK] Digital signature (first 100 chars): {digital_signature[:100]}...")
             
             # =====================================================================
-            # LAYER 5: Text Steganography
+            # LAYER 5: Linguistic Steganography
             # =====================================================================
-            print(f"\n[LAYER 5] TEXT STEGANOGRAPHY")
-            print(f"Hiding watermarked ciphertext in cover text...")
+            print(f"\n[LAYER 5] LINGUISTIC STEGANOGRAPHY")
+            print(f"Hiding watermarked ciphertext using synonym substitution...")
             
             # Base64 encode the watermarked ciphertext to preserve Unicode characters
             # through the steganography process
             watermarked_b64 = base64.b64encode(watermarked_ciphertext.encode('utf-8')).decode('ascii')
             print(f"  Base64 encoded watermarked text (length: {len(watermarked_b64)})")
             
-            # Hide the Base64-encoded watermarked ciphertext in cover text
-            stego_result, _ = TextSteganographyService.hide_message(
+            # Hide the Base64-encoded watermarked ciphertext using linguistic steganography
+            stego_result, _ = LinguisticSteganographyService.hide_message(
                 secret_message=watermarked_b64,
                 cover_text=cover_text
             )
@@ -317,7 +317,7 @@ class AdvancedLayeredService:
             if not stego_result.get('success'):
                 return {
                     'success': False,
-                    'error': 'Layer 5 (Text steganography) failed',
+                    'error': 'Layer 5 (Linguistic steganography) failed',
                     'details': stego_result.get('error')
                 }
             
@@ -325,17 +325,19 @@ class AdvancedLayeredService:
             
             layer_outputs.append({
                 'layer': 5,
-                'name': 'Text Steganography',
-                'algorithm': 'Whitespace Steganography',
+                'name': 'Linguistic Steganography',
+                'algorithm': 'Synonym Substitution',
                 'input': watermarked_ciphertext,
                 'output': final_stego_text,
                 'metadata': {
-                    'method': 'whitespace-patterns',
-                    'cover_text_length': stego_result.get('cover_text_length')
+                    'method': 'linguistic-synonym-substitution',
+                    'sentences_generated': stego_result.get('sentences_generated'),
+                    'bits_embedded': stego_result.get('total_bits_embedded')
                 }
             })
             
             print(f"[OK] Final stego text (length: {len(final_stego_text)})")
+            print(f"  Generated {stego_result.get('sentences_generated', 0)} sentences")
             print(f"  Stego text preview: {final_stego_text[:150]}...")
             
             # =====================================================================
@@ -359,9 +361,9 @@ class AdvancedLayeredService:
                     'layers': [
                         'AES-256 Encryption',
                         f"{keys['key_encryption']['algorithm']} Key Encryption",
-                        f"{keys['signature']['algorithm']} Signature",
                         'Text Watermarking',
-                        'Text Steganography'
+                        f"{keys['signature']['algorithm']} Signature",
+                        'Linguistic Steganography'
                     ]
                 },
                 'encrypted_aes_key': encrypted_aes_key,
@@ -411,18 +413,18 @@ class AdvancedLayeredService:
             decryption_steps = []
             
             # =====================================================================
-            # LAYER 5 REVERSE: Extract from Steganography
+            # LAYER 5 REVERSE: Extract from Linguistic Steganography
             # =====================================================================
-            print(f"\n[LAYER 5 REVERSE] EXTRACT FROM STEGANOGRAPHY")
+            print(f"\n[LAYER 5 REVERSE] EXTRACT FROM LINGUISTIC STEGANOGRAPHY")
             print(f"Stego text length: {len(stego_text)}")
             print(f"Stego text preview (first 100 chars): {stego_text[:100]}")
             
-            extract_result, _ = TextSteganographyService.extract_message(stego_text)
+            extract_result, _ = LinguisticSteganographyService.extract_message(stego_text)
             
             if not extract_result.get('success'):
                 return {
                     'success': False,
-                    'error': 'Layer 5 reverse (Stego extraction) failed',
+                    'error': 'Layer 5 reverse (Linguistic stego extraction) failed',
                     'details': {
                         'message': extract_result.get('error'),
                         'stego_text_length': len(stego_text),
@@ -446,7 +448,7 @@ class AdvancedLayeredService:
             
             decryption_steps.append({
                 'layer': 5,
-                'name': 'Steganography Extraction',
+                'name': 'Linguistic Steganography Extraction',
                 'status': 'success',
                 'output': watermarked_ciphertext[:100] + '...'
             })

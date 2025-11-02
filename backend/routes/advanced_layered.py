@@ -202,9 +202,9 @@ def info():
             },
             {
                 'layer': 5,
-                'name': 'Text Steganography',
-                'description': 'Hide watermarked ciphertext in cover text',
-                'algorithm': 'Whitespace Steganography',
+                'name': 'Linguistic Steganography',
+                'description': 'Hide watermarked ciphertext using synonym substitution',
+                'algorithm': 'Synonym Substitution',
                 'purpose': 'Covert communication and obfuscation'
             }
         ],
@@ -215,11 +215,11 @@ def info():
                 'Layer 2: RSA/ECC encrypts AES key → encrypted key',
                 'Layer 3: Hash ciphertext and sign → digital signature',
                 'Layer 4: Watermark ciphertext with sender ID → watermarked text',
-                'Layer 5: Hide in cover text using steganography → final stego text'
+                'Layer 5: Hide in natural text using linguistic steganography → final stego text'
             ],
             'decryption': [
                 'Receive stego text',
-                'Layer 5 reverse: Extract hidden message from stego text',
+                'Layer 5 reverse: Extract hidden message from linguistic stego text',
                 'Layer 4 reverse: Extract watermark and verify sender',
                 'Layer 3 reverse: Verify digital signature and hash',
                 'Layer 2 reverse: Decrypt AES key using RSA/ECC',
@@ -233,7 +233,7 @@ def info():
             'Authentication: Sender verification via signature',
             'Non-repudiation: Digital signature proves sender identity',
             'Ownership: Watermark identifies sender',
-            'Stealth: Steganography hides encrypted data'
+            'Stealth: Linguistic steganography hides encrypted data in natural text'
         ],
         'algorithms': {
             'aes': {

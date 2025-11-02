@@ -30,7 +30,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      const response = await authApi.checkAuth();
+      // Set a timeout for the auth check
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
+      const response = await fetch('http://127.0.0.1:5000/api/auth/check', {
+        credentials: 'include',
+        signal: controller.signal
+      }).then(res => res.json());
+
+      clearTimeout(timeoutId);
+
       if (response.authenticated && response.user) {
         setUser(response.user);
         localStorage.setItem("user", JSON.stringify(response.user));
@@ -40,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error("Auth check failed:", error);
+      // On failure, don't block - just assume not authenticated
       setUser(null);
       localStorage.removeItem("user");
     } finally {
@@ -60,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     "/steganography",
     "/watermarking",
     "/layered",
-    "/layered-encryption",
+    // "/layered-encryption", // Removed - allow public access for demo
     "/layered-image",
   ];
 

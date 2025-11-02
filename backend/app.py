@@ -30,7 +30,12 @@ def create_app():
     Config.init_app(app)
     
     # Enable CORS for all domains on all routes
-    CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"], 
+    CORS(app, origins=[
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001"
+    ], 
          methods=["GET", "POST", "OPTIONS"],
          allow_headers=["Content-Type", "Authorization"],
          supports_credentials=True)

@@ -189,10 +189,13 @@ export default function LayeredEncryptionPage() {
 
       setProgress(100)
       
-      // Store all encryption outputs
+      // Store all encryption outputs  
       // Backend returns 'final_output' not 'stego_text'
       const finalOutput = encryptData.final_output || encryptData.stego_text
+      const responseKeys = encryptData.keys // Use keys from encryption response
+      
       setStegoText(finalOutput)
+      setKeys(responseKeys) // Update keys state with response keys
       setEncryptedAESKey(encryptData.encrypted_aes_key)
       setDigitalSignature(encryptData.digital_signature)
       setCiphertextHash(encryptData.ciphertext_hash)
@@ -202,7 +205,7 @@ export default function LayeredEncryptionPage() {
       
       // Save encryption data for recovery
       saveEncryptionData({
-        keys,
+        keys: responseKeys, // Save keys from response, not from state
         stegoText: finalOutput,
         encryptedAESKey: encryptData.encrypted_aes_key,
         digitalSignature: encryptData.digital_signature,
@@ -258,7 +261,12 @@ export default function LayeredEncryptionPage() {
         hasCiphertextHash: !!ciphertextHash,
         hasAesIV: !!aesIV,
         useECC,
-        stegoTextPreview: stegoText.substring(0, 50) + '...'
+        stegoTextPreview: stegoText.substring(0, 50) + '...',
+        keyStructure: keys ? Object.keys(keys) : 'null',
+        encryptedAESKeyLength: encryptedAESKey ? encryptedAESKey.length : 0,
+        digitalSignatureLength: digitalSignature ? digitalSignature.length : 0,
+        ciphertextHashLength: ciphertextHash ? ciphertextHash.length : 0,
+        aesIVLength: aesIV ? aesIV.length : 0
       })
 
       const decryptResponse = await fetch('http://127.0.0.1:5000/api/advanced-layered/decrypt', {
@@ -292,9 +300,25 @@ export default function LayeredEncryptionPage() {
           }
         }
         
-        // Add specific guidance for stego extraction failures
+        // Add specific guidance for different failure types
         if (errorMsg.includes('Stego extraction') || errorMsg.includes('corrupted')) {
           errorMsg += '\n\n⚠️ The encrypted data was modified after encryption. Please use the encrypted data from the "Results" tab on this page, or re-encrypt your message.'
+        } else if (errorMsg.includes('Digital signature verification failed')) {
+          errorMsg += '\n\n🔍 This could be due to:'
+          errorMsg += '\n• Keys mismatch between encryption and decryption'
+          errorMsg += '\n• Corrupted signature or hash data'
+          errorMsg += '\n• Wrong algorithm selection (RSA vs ECC)'
+          errorMsg += '\n• Data corruption during transmission'
+        }
+        
+        // Add debug information for development
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Decryption error details:', decryptData)
+          errorMsg += '\n\n🐛 Debug info (check console for full details):'
+          errorMsg += `\n• Backend error: ${decryptData.error}`
+          if (decryptData.layer_errors) {
+            errorMsg += `\n• Layer errors: ${JSON.stringify(decryptData.layer_errors)}`
+          }
         }
         
         throw new Error(errorMsg)
@@ -342,6 +366,56 @@ export default function LayeredEncryptionPage() {
     setTimeout(() => setSuccess(""), 2000)
   }
 
+  const testIntegrity = async () => {
+    if (!stegoText || !keys) {
+      setError("No encryption data available to test. Please encrypt first.")
+      return
+    }
+
+    setError("")
+    setSuccess("")
+
+    try {
+      // Test data integrity
+      console.log("=== DATA INTEGRITY TEST ===")
+      console.log("Stego text length:", stegoText.length)
+      console.log("Keys available:", !!keys)
+      console.log("Keys structure:", keys ? Object.keys(keys) : 'none')
+      console.log("Encrypted AES key:", !!encryptedAESKey)
+      console.log("Digital signature:", !!digitalSignature) 
+      console.log("Ciphertext hash:", !!ciphertextHash)
+      console.log("AES IV:", !!aesIV)
+      console.log("Use ECC:", useECC)
+
+      // Check for common corruption indicators
+      const hasControlChars = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(stegoText)
+      const hasUnicodeErrors = stegoText.includes('�')
+      const expectedLength = stegoText.length > 5000 && stegoText.length < 20000
+
+      console.log("Corruption checks:")
+      console.log("- Has control chars:", hasControlChars)
+      console.log("- Has unicode errors:", hasUnicodeErrors)
+      console.log("- Length reasonable:", expectedLength)
+
+      let warningMsg = "Data integrity check completed.\n"
+      if (hasControlChars) warningMsg += "⚠️ Control characters detected\n"
+      if (hasUnicodeErrors) warningMsg += "⚠️ Unicode corruption detected\n"
+      if (!expectedLength) warningMsg += "⚠️ Unexpected text length\n"
+
+      if (!hasControlChars && !hasUnicodeErrors && expectedLength) {
+        warningMsg += "✅ Data appears intact - ready for decryption"
+      } else {
+        warningMsg += "❌ Data corruption detected - decryption may fail"
+      }
+
+      setSuccess(warningMsg)
+      setTimeout(() => setSuccess(""), 5000)
+
+    } catch (err: any) {
+      setError("Integrity test failed: " + err.message)
+    }
+  }
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
     setSuccess("Copied to clipboard!")
@@ -368,12 +442,12 @@ export default function LayeredEncryptionPage() {
             <ArrowRight className="h-4 w-4" />
             <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 rounded text-xs">Layer 4: Signature</span>
             <ArrowRight className="h-4 w-4" />
-            <span className="px-2 py-1 bg-pink-100 dark:bg-pink-900 rounded text-xs">Layer 5: Steganography</span>
+            <span className="px-2 py-1 bg-pink-100 dark:bg-pink-900 rounded text-xs">Layer 5: Linguistic Stego</span>
             <ArrowRight className="h-4 w-4" />
             <span className="font-semibold">Stego Text</span>
           </div>
           <p className="text-xs text-muted-foreground mt-3">
-            Each layer adds security: confidentiality (AES), key protection (RSA/ECC), sender authentication (watermark), integrity (signature), covert communication (steganography)
+            Each layer adds security: confidentiality (AES), key protection (RSA/ECC), sender authentication (watermark), integrity (signature), covert communication (linguistic steganography)
           </p>
         </div>
       </div>
@@ -512,7 +586,7 @@ export default function LayeredEncryptionPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Eye className="h-4 w-4 text-pink-600" />
-                    <span><strong>Layer 5:</strong> Whitespace text steganography</span>
+                    <span><strong>Layer 5:</strong> Linguistic steganography (synonym substitution)</span>
                   </div>
                 </CardContent>
               </Card>
@@ -566,8 +640,8 @@ export default function LayeredEncryptionPage() {
                     <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
                       <Info className="h-4 w-4 text-yellow-600" />
                       <AlertDescription className="text-yellow-600 dark:text-yellow-400 text-sm">
-                        <strong>Important:</strong> This text contains special characters that must be preserved exactly. 
-                        Copying and pasting may corrupt the data. Use the automatic decryption on this page instead.
+                        <strong>Linguistic Steganography:</strong> The encrypted data is hidden in natural-looking sentences using synonym substitution. 
+                        The text may appear longer but reads like normal English text with simple sentences.
                       </AlertDescription>
                     </Alert>
                     <Textarea
@@ -577,7 +651,7 @@ export default function LayeredEncryptionPage() {
                       className="font-mono text-xs"
                     />
                     <p className="text-sm text-muted-foreground">
-                      {stegoText.length} characters - looks like innocent text, but contains hidden encrypted data
+                      {stegoText.length} characters - Natural-looking text with hidden encrypted data using linguistic steganography
                     </p>
                   </div>
 
@@ -702,6 +776,10 @@ export default function LayeredEncryptionPage() {
                     <Button onClick={handleDecrypt} disabled={loading} className="flex-1">
                       <Unlock className="mr-2 h-4 w-4" />
                       Decrypt Data
+                    </Button>
+                    <Button onClick={testIntegrity} disabled={loading} variant="outline">
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Test Data
                     </Button>
                   </div>
                   
