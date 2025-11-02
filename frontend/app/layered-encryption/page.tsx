@@ -6,10 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowRight, Lock, Unlock, Key, Shield, CheckCircle2, XCircle, Info, Download, Copy } from "lucide-react"
+import { ArrowRight, Lock, Unlock, Key, Shield, CheckCircle2, XCircle, Info, Copy, Droplet, Eye, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LayeredWalkthrough } from "@/components/layered-walkthrough"
 
@@ -37,20 +38,31 @@ interface LayerMetadata {
 
 interface LayerOutput {
   layer: number
+  name: string
   algorithm: string
-  input: string
   output: string
-  iv?: string
-  signature?: string
-  key_size?: string
-  curve?: string
+  metadata?: any
 }
 
 export default function LayeredEncryptionPage() {
   const [activeTab, setActiveTab] = useState("input")
-  const [plaintext, setPlaintext] = useState("Hello, this is a secret message that will be encrypted through multiple layers!")
+  const [plaintext, setPlaintext] = useState("This is a secret message that needs maximum security!")
+  const [senderIdentifier, setSenderIdentifier] = useState("Alice")
+  const [coverText, setCoverText] = useState("")
+  const [useECC, setUseECC] = useState(false)
+  
+  const [stegoText, setStegoText] = useState("")
+  const [encryptedAESKey, setEncryptedAESKey] = useState("")
+  const [digitalSignature, setDigitalSignature] = useState("")
+  const [ciphertextHash, setCiphertextHash] = useState("")
+  const [aesIV, setAesIV] = useState("")
+  
   const [encryptedData, setEncryptedData] = useState("")
   const [decryptedData, setDecryptedData] = useState("")
+  const [extractedWatermark, setExtractedWatermark] = useState("")
+  const [signatureValid, setSignatureValid] = useState(false)
+  const [hashValid, setHashValid] = useState(false)
+  
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
@@ -64,8 +76,48 @@ export default function LayeredEncryptionPage() {
   
   const [encryptionSteps, setEncryptionSteps] = useState<EncryptionStep[]>([])
   const [layerMetadata, setLayerMetadata] = useState<LayerMetadata[]>([])
-  const [layerOutputs, setLayerOutputs] = useState<LayerOutput[]>([])
+  const [encryptionLayerOutputs, setEncryptionLayerOutputs] = useState<LayerOutput[]>([])
+  const [decryptionLayerOutputs, setDecryptionLayerOutputs] = useState<any[]>([])
   const [keys, setKeys] = useState<any>(null)
+
+  // Save encryption data to sessionStorage for recovery
+  const saveEncryptionData = (data: any) => {
+    try {
+      sessionStorage.setItem('cryptolearn_encryption_data', JSON.stringify({
+        keys: data.keys,
+        stegoText: data.stegoText,
+        encryptedAESKey: data.encryptedAESKey,
+        digitalSignature: data.digitalSignature,
+        ciphertextHash: data.ciphertextHash,
+        aesIV: data.aesIV,
+        useECC: data.useECC,
+        timestamp: new Date().toISOString()
+      }))
+    } catch (err) {
+      console.error('Failed to save encryption data:', err)
+    }
+  }
+
+  // Load encryption data from sessionStorage
+  const loadEncryptionData = () => {
+    try {
+      const saved = sessionStorage.getItem('cryptolearn_encryption_data')
+      if (saved) {
+        const data = JSON.parse(saved)
+        setKeys(data.keys)
+        setStegoText(data.stegoText)
+        setEncryptedAESKey(data.encryptedAESKey)
+        setDigitalSignature(data.digitalSignature)
+        setCiphertextHash(data.ciphertextHash)
+        setAesIV(data.aesIV)
+        setUseECC(data.useECC)
+        return true
+      }
+    } catch (err) {
+      console.error('Failed to load encryption data:', err)
+    }
+    return false
+  }
 
   const toggleLayer = (id: string) => {
     setLayers(prev => prev.map(layer => 
@@ -82,94 +134,84 @@ export default function LayeredEncryptionPage() {
     setSuccess("")
     setLoading(true)
     setProgress(0)
+    setDecryptedData("") // Clear decryption results
+    setExtractedWatermark("")
+    setSignatureValid(false)
+    setHashValid(false)
 
     try {
-      const enabledLayers = getEnabledLayers()
-      
-      if (enabledLayers.length === 0) {
-        setError("Please select at least one encryption layer")
-        setLoading(false)
-        return
-      }
-
       if (!plaintext.trim()) {
-        setError("Please enter text to encrypt")
-        setLoading(false)
-        return
+        throw new Error("Please enter text to encrypt")
       }
 
-      // Step 1: Generate keys
-      setProgress(20)
-      
-      console.log('='.repeat(60))
-      console.log('ENCRYPTION REQUEST FROM FRONTEND')
-      console.log('Plaintext:', plaintext)
-      console.log('Plaintext length:', plaintext.length)
-      console.log('Enabled layers:', enabledLayers)
-      console.log('='.repeat(60))
-      
-      const keysResponse = await fetch('http://127.0.0.1:5000/api/layered/generate-keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ algorithms: enabledLayers })
-      })
-
-      const keysData = await keysResponse.json()
-      
-      if (!keysData.success) {
-        throw new Error(keysData.error || 'Key generation failed')
+      if (!senderIdentifier.trim()) {
+        throw new Error("Please enter sender identifier")
       }
 
-      // Store fresh keys in state
-      setKeys(keysData.keys)
-      setProgress(40)
+      // Generate keys if not already generated
+      if (!keys) {
+        setProgress(10)
+        const keysResponse = await fetch('http://127.0.0.1:5000/api/advanced-layered/generate-keys', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ use_ecc: useECC })
+        })
 
-      // Step 2: Encrypt using the freshly generated keys
-      console.log('=== FRONTEND ENCRYPT ===');
-      console.log('Plaintext to encrypt:', plaintext);
-      console.log('Plaintext length:', plaintext.length);
-      console.log('Layers:', enabledLayers);
-      console.log('Keys available:', Object.keys(keysData.keys));
-      console.log('========================');
-      
-      const encryptResponse = await fetch('http://127.0.0.1:5000/api/layered/encrypt', {
+        const keysData = await keysResponse.json()
+        
+        if (!keysData.success) {
+          throw new Error(keysData.error || 'Key generation failed')
+        }
+
+        setKeys(keysData.keys)
+      }
+
+      setProgress(30)
+
+      // Encrypt using 5-layer system
+      const encryptResponse = await fetch('http://127.0.0.1:5000/api/advanced-layered/encrypt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           plaintext,
-          layers: enabledLayers,
-          keys: keysData.keys  // Use the freshly generated keys
+          sender_identifier: senderIdentifier,
+          keys,
+          use_ecc: useECC,
+          cover_text: coverText || undefined
         })
       })
 
       const encryptData = await encryptResponse.json()
-      
-      console.log('=== ENCRYPTION SUCCESS ===')
-      console.log('Timestamp:', encryptData.timestamp)
-      console.log('Unique Nonce:', encryptData.nonce)
-      console.log('Encrypted (first 100):', encryptData.encrypted_data?.substring(0, 100))
-      console.log('Total length:', encryptData.encrypted_data?.length)
-      console.log('=========================')
       
       if (!encryptData.success) {
         throw new Error(encryptData.error || 'Encryption failed')
       }
 
       setProgress(100)
-      setEncryptedData(encryptData.encrypted_data)
-      setEncryptionSteps(encryptData.encryption_steps || [])
-      setLayerMetadata(encryptData.layer_metadata || [])
-      setLayerOutputs(encryptData.layer_outputs || [])  // Store layer-by-layer outputs
       
-      // IMPORTANT: Update keys with the ones from encryption (includes IV for AES)
-      if (encryptData.keys) {
-        setKeys(encryptData.keys)
-        console.log('Keys updated with IV:', encryptData.keys.aes?.iv?.substring(0, 32) || 'N/A')
-      }
+      // Store all encryption outputs
+      // Backend returns 'final_output' not 'stego_text'
+      const finalOutput = encryptData.final_output || encryptData.stego_text
+      setStegoText(finalOutput)
+      setEncryptedAESKey(encryptData.encrypted_aes_key)
+      setDigitalSignature(encryptData.digital_signature)
+      setCiphertextHash(encryptData.ciphertext_hash)
+      setAesIV(encryptData.aes_iv)
+      setEncryptionLayerOutputs(encryptData.layer_outputs || [])
+      setEncryptedData(finalOutput) // Keep for compatibility
       
-      // Show unique encryption metadata
-      const uniqueMsg = `Successfully encrypted! 🕒 ${new Date(encryptData.timestamp).toLocaleTimeString()} | 🔑 ID: ${encryptData.nonce.substring(0, 12)}...`
-      setSuccess(uniqueMsg)
+      // Save encryption data for recovery
+      saveEncryptionData({
+        keys,
+        stegoText: finalOutput,
+        encryptedAESKey: encryptData.encrypted_aes_key,
+        digitalSignature: encryptData.digital_signature,
+        ciphertextHash: encryptData.ciphertext_hash,
+        aesIV: encryptData.aes_iv,
+        useECC
+      })
+      
+      setSuccess('✓ Successfully encrypted through all 5 layers!')
       setActiveTab("results")
 
     } catch (err: any) {
@@ -186,46 +228,86 @@ export default function LayeredEncryptionPage() {
     setProgress(0)
 
     try {
-      if (!encryptedData) {
-        setError("No encrypted data available")
-        setLoading(false)
-        return
+      // Check if we have encrypted data, if not try to load from sessionStorage
+      if (!stegoText || !keys) {
+        const loaded = loadEncryptionData()
+        if (!loaded) {
+          throw new Error("No encrypted data available. Please encrypt a message first.")
+        }
+      }
+
+      if (!stegoText) {
+        throw new Error("No encrypted data available")
       }
 
       if (!keys) {
-        setError("Encryption keys not available")
-        setLoading(false)
-        return
+        throw new Error("Encryption keys not available. Please encrypt a message first.")
       }
 
-      const enabledLayers = getEnabledLayers()
+      if (!encryptedAESKey || !digitalSignature || !ciphertextHash || !aesIV) {
+        throw new Error("Missing encryption metadata. Please ensure all encryption data is available.")
+      }
+
       setProgress(30)
 
-      const decryptResponse = await fetch('http://127.0.0.1:5000/api/layered/decrypt', {
+      console.log('Decryption request:', {
+        stegoTextLength: stegoText.length,
+        hasKeys: !!keys,
+        hasEncryptedAESKey: !!encryptedAESKey,
+        hasDigitalSignature: !!digitalSignature,
+        hasCiphertextHash: !!ciphertextHash,
+        hasAesIV: !!aesIV,
+        useECC,
+        stegoTextPreview: stegoText.substring(0, 50) + '...'
+      })
+
+      const decryptResponse = await fetch('http://127.0.0.1:5000/api/advanced-layered/decrypt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          encrypted_data: encryptedData,
-          layers: enabledLayers,
-          keys
+          stego_text: stegoText,
+          keys,
+          encrypted_aes_key: encryptedAESKey,
+          digital_signature: digitalSignature,
+          ciphertext_hash: ciphertextHash,
+          aes_iv: aesIV,
+          use_ecc: useECC
         })
       })
 
       const decryptData = await decryptResponse.json()
       
-      console.log('=== DECRYPTION RESPONSE ===');
-      console.log('Success:', decryptData.success);
-      console.log('Plaintext length:', decryptData.plaintext?.length);
-      console.log('Plaintext preview:', decryptData.plaintext?.substring(0, 100));
-      console.log('=========================');
+      console.log('Decryption response:', decryptData)
       
       if (!decryptData.success) {
-        throw new Error(decryptData.error || 'Decryption failed')
+        // Show detailed error information
+        let errorMsg = decryptData.error || 'Decryption failed'
+        if (decryptData.details) {
+          if (typeof decryptData.details === 'string') {
+            errorMsg += ': ' + decryptData.details
+          } else if (decryptData.details.hint) {
+            errorMsg += '\n\n💡 ' + decryptData.details.hint
+          } else if (decryptData.details.message) {
+            errorMsg += '\n\n' + decryptData.details.message
+          }
+        }
+        
+        // Add specific guidance for stego extraction failures
+        if (errorMsg.includes('Stego extraction') || errorMsg.includes('corrupted')) {
+          errorMsg += '\n\n⚠️ The encrypted data was modified after encryption. Please use the encrypted data from the "Results" tab on this page, or re-encrypt your message.'
+        }
+        
+        throw new Error(errorMsg)
       }
 
       setProgress(100)
       setDecryptedData(decryptData.plaintext)
-      setSuccess('Successfully decrypted!')
+      setExtractedWatermark(decryptData.extracted_watermark)
+      setSignatureValid(decryptData.signature_verified || false)
+      setHashValid(decryptData.hash_verified || false)
+      setDecryptionLayerOutputs(decryptData.decryption_steps || []) // Show decryption steps
+      
+      setSuccess('✓ Successfully decrypted through all 5 layers!')
       setActiveTab("decrypt")
 
     } catch (err: any) {
@@ -233,6 +315,31 @@ export default function LayeredEncryptionPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const resetAll = () => {
+    setPlaintext("")
+    setSenderIdentifier("")
+    setCoverText("")
+    setStegoText("")
+    setEncryptedAESKey("")
+    setDigitalSignature("")
+    setCiphertextHash("")
+    setAesIV("")
+    setEncryptedData("")
+    setDecryptedData("")
+    setExtractedWatermark("")
+    setSignatureValid(false)
+    setHashValid(false)
+    setKeys(null)
+    setEncryptionLayerOutputs([])
+    setDecryptionLayerOutputs([])
+    setError("")
+    setSuccess("")
+    setProgress(0)
+    sessionStorage.removeItem('cryptolearn_encryption_data')
+    setSuccess("✓ All data cleared. Ready for new encryption.")
+    setTimeout(() => setSuccess(""), 2000)
   }
 
   const copyToClipboard = (text: string) => {
@@ -244,17 +351,29 @@ export default function LayeredEncryptionPage() {
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Layered Encryption System</h1>
+        <h1 className="text-4xl font-bold mb-2">Advanced 5-Layer Encryption System</h1>
         <p className="text-muted-foreground text-lg">
-          Encrypt your data through multiple cryptographic layers for enhanced security
+          State-of-the-art multi-layer cryptographic workflow with watermarking and steganography
         </p>
         <div className="mt-4 p-4 bg-primary/5 border border-primary/20 rounded-lg">
-          <p className="text-sm font-semibold mb-2">Encryption Flow:</p>
-          <p className="text-sm text-muted-foreground">
-            Plaintext → <span className="font-semibold text-primary">RSA (Encrypt)</span> → <span className="font-semibold text-primary">Digital Signature (Sign)</span> → <span className="font-semibold text-primary">AES (Encrypt)</span> → Final Ciphertext
-          </p>
-          <p className="text-xs text-muted-foreground mt-2">
-            Each layer's output becomes the input for the next layer, creating multiple security barriers
+          <p className="text-sm font-semibold mb-2">5-Layer Encryption Flow:</p>
+          <div className="flex items-center gap-2 text-sm flex-wrap">
+            <span className="font-semibold">Plaintext</span>
+            <ArrowRight className="h-4 w-4" />
+            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 rounded text-xs">Layer 1: AES-256</span>
+            <ArrowRight className="h-4 w-4" />
+            <span className="px-2 py-1 bg-green-100 dark:bg-green-900 rounded text-xs">Layer 2: Key Encryption</span>
+            <ArrowRight className="h-4 w-4" />
+            <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900 rounded text-xs">Layer 3: Watermark</span>
+            <ArrowRight className="h-4 w-4" />
+            <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900 rounded text-xs">Layer 4: Signature</span>
+            <ArrowRight className="h-4 w-4" />
+            <span className="px-2 py-1 bg-pink-100 dark:bg-pink-900 rounded text-xs">Layer 5: Steganography</span>
+            <ArrowRight className="h-4 w-4" />
+            <span className="font-semibold">Stego Text</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            Each layer adds security: confidentiality (AES), key protection (RSA/ECC), sender authentication (watermark), integrity (signature), covert communication (steganography)
           </p>
         </div>
       </div>
@@ -288,9 +407,8 @@ export default function LayeredEncryptionPage() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="input">Input</TabsTrigger>
-          <TabsTrigger value="process">Process</TabsTrigger>
           <TabsTrigger value="results">Results</TabsTrigger>
           <TabsTrigger value="decrypt">Decrypt</TabsTrigger>
           <TabsTrigger value="walkthrough">Walkthrough</TabsTrigger>
@@ -302,7 +420,7 @@ export default function LayeredEncryptionPage() {
             <CardHeader>
               <CardTitle>Input Configuration</CardTitle>
               <CardDescription>
-                Enter your text and select the encryption layers to apply
+                Enter your text, sender identifier, and configure encryption settings
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -321,109 +439,102 @@ export default function LayeredEncryptionPage() {
                 </p>
               </div>
 
-              <div className="space-y-4">
-                <Label>Encryption Layers</Label>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {layers.map((layer) => (
-                    <Card 
-                      key={layer.id}
-                      className={cn(
-                        "cursor-pointer transition-all",
-                        layer.enabled ? "border-primary bg-primary/5" : "opacity-60"
-                      )}
-                      onClick={() => toggleLayer(layer.id)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start space-x-3">
-                          <Checkbox
-                            checked={layer.enabled}
-                            onCheckedChange={() => toggleLayer(layer.id)}
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-2xl">{layer.icon}</span>
-                              <h4 className="font-semibold">{layer.name}</h4>
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {layer.description}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="sender">Sender Identifier (Watermark)</Label>
+                  <Input
+                    id="sender"
+                    value={senderIdentifier}
+                    onChange={(e) => setSenderIdentifier(e.target.value)}
+                    placeholder="e.g., Alice, Bob, Organization"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    This will be embedded as a hidden watermark
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="algorithm">Key Encryption Algorithm</Label>
+                  <div className="flex items-center space-x-2 pt-2">
+                    <Switch
+                      id="algorithm"
+                      checked={useECC}
+                      onCheckedChange={setUseECC}
+                    />
+                    <Label htmlFor="algorithm" className="cursor-pointer">
+                      {useECC ? "🔐 ECC (Elliptic Curve)" : "🔑 RSA (2048-bit)"}
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {useECC ? "ECC provides equivalent security with smaller keys" : "RSA is widely supported and battle-tested"}
+                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t">
-                <div className="text-sm text-muted-foreground space-y-1">
-                  <div>{getEnabledLayers().length} layer(s) selected</div>
-                  <div className="text-xs flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3 text-green-600" />
-                    Fresh keys generated for each encryption
+              <div className="space-y-2">
+                <Label htmlFor="cover">Cover Text (Optional - for Steganography)</Label>
+                <Textarea
+                  id="cover"
+                  value={coverText}
+                  onChange={(e) => setCoverText(e.target.value)}
+                  placeholder="Leave empty for auto-generated cover text..."
+                  rows={3}
+                  className="font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Custom cover text to hide the encrypted message (auto-generated if empty)
+                </p>
+              </div>
+
+              <Card className="bg-muted/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    5-Layer Security Stack
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-4 w-4 text-blue-600" />
+                    <span><strong>Layer 1:</strong> AES-256-CBC symmetric encryption</span>
                   </div>
-                </div>
+                  <div className="flex items-center gap-2">
+                    <Key className="h-4 w-4 text-green-600" />
+                    <span><strong>Layer 2:</strong> {useECC ? "ECC" : "RSA"} key encryption</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Droplet className="h-4 w-4 text-yellow-600" />
+                    <span><strong>Layer 3:</strong> Zero-width character watermarking</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-purple-600" />
+                    <span><strong>Layer 4:</strong> SHA-256 + {useECC ? "ECDSA" : "RSA"} signature</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Eye className="h-4 w-4 text-pink-600" />
+                    <span><strong>Layer 5:</strong> Whitespace text steganography</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="flex gap-4">
                 <Button 
                   onClick={handleEncrypt} 
-                  disabled={loading || getEnabledLayers().length === 0}
-                  size="lg"
+                  disabled={loading}
+                  className="flex-1"
                 >
                   <Lock className="mr-2 h-4 w-4" />
-                  Encrypt Data
+                  Encrypt (5 Layers)
+                </Button>
+                <Button 
+                  onClick={resetAll} 
+                  disabled={loading}
+                  variant="outline"
+                >
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Reset
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Process Tab */}
-        <TabsContent value="process" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Encryption Process</CardTitle>
-              <CardDescription>
-                Real-time visualization of each encryption layer
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {encryptionSteps.length > 0 ? (
-                <div className="space-y-4">
-                  {encryptionSteps.map((step, index) => (
-                    <div key={index} className="flex items-center gap-4 p-4 border rounded-lg">
-                      <div className={cn(
-                        "flex items-center justify-center w-10 h-10 rounded-full",
-                        step.completed ? "bg-green-500 text-white" : "bg-gray-200"
-                      )}>
-                        {step.completed ? (
-                          <CheckCircle2 className="h-5 w-5" />
-                        ) : (
-                          <span>{step.step}</span>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold capitalize">
-                          Layer {step.step}: {step.algorithm}
-                        </h4>
-                        <p className="text-sm text-muted-foreground">
-                          {layerMetadata[index]?.algorithm || 'Processing...'}
-                        </p>
-                      </div>
-                      {layerMetadata[index] && (
-                        <div className="text-right text-sm">
-                          <div>Input: {layerMetadata[index].input_size} bytes</div>
-                          <div>Output: {layerMetadata[index].output_size} bytes</div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Info className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No encryption process started yet.</p>
-                  <p className="text-sm mt-2">Go to the Input tab to begin encryption.</p>
-                </div>
-              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -438,89 +549,98 @@ export default function LayeredEncryptionPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {encryptedData ? (
+              {stegoText ? (
                 <>
-                  {/* Unique Encryption Info Badge */}
-                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Lock className="h-4 w-4 text-primary" />
-                      <span className="font-semibold">Unique Encryption</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Each encryption generates a unique timestamp and random nonce, 
-                      ensuring no two encryptions are identical - even for the same plaintext.
-                    </p>
-                  </div>
-
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label>Encrypted Data</Label>
+                      <Label>Encrypted Stego Text (Final Output)</Label>
                       <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => copyToClipboard(encryptedData)}
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => copyToClipboard(stegoText)}
                       >
-                        <Copy className="h-4 w-4 mr-2" />
+                        <Copy className="mr-2 h-4 w-4" />
                         Copy
                       </Button>
                     </div>
+                    <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+                      <Info className="h-4 w-4 text-yellow-600" />
+                      <AlertDescription className="text-yellow-600 dark:text-yellow-400 text-sm">
+                        <strong>Important:</strong> This text contains special characters that must be preserved exactly. 
+                        Copying and pasting may corrupt the data. Use the automatic decryption on this page instead.
+                      </AlertDescription>
+                    </Alert>
                     <Textarea
-                      value={encryptedData}
+                      value={stegoText}
                       readOnly
-                      rows={8}
-                      className="font-mono text-sm"
+                      rows={6}
+                      className="font-mono text-xs"
                     />
                     <p className="text-sm text-muted-foreground">
-                      {encryptedData.length} characters (includes timestamp + nonce + encrypted layers)
+                      {stegoText.length} characters - looks like innocent text, but contains hidden encrypted data
                     </p>
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                    <Card>
+                    <Card className="bg-muted/50">
                       <CardHeader className="pb-3">
-                        <CardTitle className="text-sm">Statistics</CardTitle>
+                        <CardTitle className="text-sm">Encryption Metadata</CardTitle>
                       </CardHeader>
                       <CardContent className="space-y-2 text-sm">
-                        <div className="flex justify-between">
+                        <div>
+                          <span className="text-muted-foreground">Algorithm:</span>
+                          <span className="ml-2 font-mono">{useECC ? 'ECC + ECDSA' : 'RSA + RSA-SHA256'}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Sender Watermark:</span>
+                          <span className="ml-2 font-mono">{senderIdentifier}</span>
+                        </div>
+                        <div>
                           <span className="text-muted-foreground">Original Size:</span>
-                          <span className="font-mono">{plaintext.length} bytes</span>
+                          <span className="ml-2 font-mono">{plaintext.length} bytes</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Encrypted Size:</span>
-                          <span className="font-mono">{encryptedData.length} bytes</span>
+                        <div>
+                          <span className="text-muted-foreground">Stego Size:</span>
+                          <span className="ml-2 font-mono">{stegoText.length} bytes</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Layers Applied:</span>
-                          <span className="font-mono">{encryptionSteps.length}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Encryption Ratio:</span>
-                          <span className="font-mono">
-                            {((encryptedData.length / plaintext.length) * 100).toFixed(1)}%
-                          </span>
+                        <div>
+                          <span className="text-muted-foreground">Hash:</span>
+                          <span className="ml-2 font-mono text-xs">{ciphertextHash.substring(0, 16)}...</span>
                         </div>
                       </CardContent>
                     </Card>
 
-                    <Card>
+                    <Card className="bg-muted/50">
                       <CardHeader className="pb-3">
-                        <CardTitle className="text-sm">Security Layers</CardTitle>
+                        <CardTitle className="text-sm">Decryption Requirements</CardTitle>
                       </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2">
-                          {layerMetadata.map((meta, index) => (
-                            <div key={index} className="flex items-center gap-2 text-sm">
-                              <Shield className="h-4 w-4 text-primary" />
-                              <span>{meta.algorithm}</span>
-                            </div>
-                          ))}
+                      <CardContent className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <span>Stego text (visible above)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <span>Private keys (stored)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <span>Encrypted AES key</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <span>Digital signature</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <span>Hash & IV</span>
                         </div>
                       </CardContent>
                     </Card>
                   </div>
 
                   {/* Layer-by-Layer Output Display */}
-                  {layerOutputs.length > 0 && (
+                  {encryptionLayerOutputs.length > 0 && (
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-lg">Layer-by-Layer Encryption Output</CardTitle>
@@ -530,14 +650,17 @@ export default function LayeredEncryptionPage() {
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-4">
-                          {layerOutputs.map((layer, index) => (
+                          {encryptionLayerOutputs.map((layer, index) => (
                             <div key={index} className="border rounded-lg p-4 space-y-3">
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                                  <div className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">
                                     {layer.layer}
                                   </div>
-                                  <h4 className="font-semibold text-sm">{layer.algorithm}</h4>
+                                  <div>
+                                    <h4 className="font-semibold text-sm">{layer.name}</h4>
+                                    <p className="text-xs text-muted-foreground">{layer.algorithm}</p>
+                                  </div>
                                 </div>
                                 <Button
                                   variant="ghost"
@@ -548,43 +671,26 @@ export default function LayeredEncryptionPage() {
                                 </Button>
                               </div>
                               
-                              <div className="space-y-2">
-                                <div>
-                                  <Label className="text-xs text-muted-foreground">Input ({layer.input.length} chars)</Label>
-                                  <div className="mt-1 p-2 bg-muted rounded text-xs font-mono break-all">
-                                    {layer.input.length > 150 
-                                      ? `${layer.input.substring(0, 150)}...` 
-                                      : layer.input
-                                    }
-                                  </div>
+                              <div>
+                                <Label className="text-xs text-muted-foreground">Output ({layer.output.length} chars)</Label>
+                                <div className="mt-1 p-2 bg-primary/5 border border-primary/20 rounded text-xs font-mono break-all">
+                                  {layer.output.length > 200 
+                                    ? `${layer.output.substring(0, 200)}...` 
+                                    : layer.output
+                                  }
                                 </div>
-                                
-                                <div className="flex justify-center py-1">
-                                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                                
-                                <div>
-                                  <Label className="text-xs text-muted-foreground">Output ({layer.output.length} chars)</Label>
-                                  <div className="mt-1 p-2 bg-primary/5 border border-primary/20 rounded text-xs font-mono break-all">
-                                    {layer.output.length > 150 
-                                      ? `${layer.output.substring(0, 150)}...` 
-                                      : layer.output
-                                    }
-                                  </div>
-                                </div>
-                                
-                                {layer.iv && (
-                                  <div className="text-xs text-muted-foreground">
-                                    <span className="font-semibold">IV:</span> {layer.iv.substring(0, 32)}...
-                                  </div>
-                                )}
-                                
-                                {layer.signature && (
-                                  <div className="text-xs text-muted-foreground">
-                                    <span className="font-semibold">Signature:</span> {layer.signature.substring(0, 48)}...
-                                  </div>
-                                )}
                               </div>
+                              
+                              {layer.metadata && Object.keys(layer.metadata).length > 0 && (
+                                <div className="text-xs text-muted-foreground space-y-1">
+                                  {Object.entries(layer.metadata).map(([key, value]: [string, any]) => (
+                                    <div key={key}>
+                                      <span className="font-semibold">{key}:</span> {value?.toString().substring(0, 64)}
+                                      {value?.toString().length > 64 && '...'}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -598,12 +704,28 @@ export default function LayeredEncryptionPage() {
                       Decrypt Data
                     </Button>
                   </div>
+                  
+                  <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950">
+                    <Info className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-600 dark:text-blue-400 text-sm">
+                      <strong>Tip:</strong> Make sure to use the encrypted data generated on this page. 
+                      The decryption uses the exact stego text and keys from the encryption process.
+                      If you encrypted elsewhere, you must use those exact outputs here.
+                    </AlertDescription>
+                  </Alert>
                 </>
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
                   <Lock className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No encrypted data available.</p>
                   <p className="text-sm mt-2">Encrypt some data first to see results here.</p>
+                  <Button 
+                    onClick={() => setActiveTab("input")} 
+                    variant="outline" 
+                    className="mt-4"
+                  >
+                    Go to Input
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -625,12 +747,12 @@ export default function LayeredEncryptionPage() {
                   <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                     <AlertDescription className="text-green-600 dark:text-green-400">
-                      Successfully decrypted through all layers!
+                      Successfully decrypted through all 5 layers!
                     </AlertDescription>
                   </Alert>
 
                   <div className="space-y-2">
-                    <Label>Decrypted Text</Label>
+                    <Label>Decrypted Plaintext</Label>
                     <Textarea
                       value={decryptedData}
                       readOnly
@@ -639,12 +761,115 @@ export default function LayeredEncryptionPage() {
                     />
                   </div>
 
+                  {/* Layer-by-Layer Decryption Steps */}
+                  {decryptionLayerOutputs.length > 0 && (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">Layer-by-Layer Decryption</CardTitle>
+                        <CardDescription>
+                          See how each layer is reversed during decryption
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {decryptionLayerOutputs.map((step: any, index) => (
+                            <div key={index} className="border rounded-lg p-4 space-y-3">
+                              <div className="flex items-center gap-2">
+                                <div className="h-8 w-8 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold">
+                                  {step.layer}
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold text-sm">{step.name} (Reverse)</h4>
+                                  <p className="text-xs text-green-600">✓ {step.status}</p>
+                                </div>
+                              </div>
+                              
+                              {step.output && (
+                                <div>
+                                  <Label className="text-xs text-muted-foreground">Output</Label>
+                                  <div className="mt-1 p-2 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded text-xs font-mono break-all">
+                                    {typeof step.output === 'string' && step.output.length > 150 
+                                      ? `${step.output.substring(0, 150)}...` 
+                                      : step.output
+                                    }
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {step.aes_key && (
+                                <div className="text-xs text-muted-foreground">
+                                  <span className="font-semibold">AES Key:</span> {step.aes_key}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <Card className={cn(
+                      "border-2",
+                      extractedWatermark === senderIdentifier ? "border-green-500" : "border-yellow-500"
+                    )}>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Droplet className="h-4 w-4" />
+                          Watermark
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-sm">
+                        <div className="font-mono font-semibold">{extractedWatermark || "N/A"}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {extractedWatermark === senderIdentifier ? "✓ Matches sender" : "⚠ Verification needed"}
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className={cn(
+                      "border-2",
+                      signatureValid ? "border-green-500" : "border-red-500"
+                    )}>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <Shield className="h-4 w-4" />
+                          Signature
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-sm">
+                        <div className="font-semibold">{signatureValid ? "✓ Valid" : "✗ Invalid"}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Digital signature verification
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card className={cn(
+                      "border-2",
+                      hashValid ? "border-green-500" : "border-red-500"
+                    )}>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-sm flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4" />
+                          Hash
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="text-sm">
+                        <div className="font-semibold">{hashValid ? "✓ Verified" : "✗ Mismatch"}</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Data integrity check
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
                   <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
                     <div>
-                      <p className="font-semibold">Verification</p>
+                      <p className="font-semibold">Verification Status</p>
                       <p className="text-sm text-muted-foreground">
                         {decryptedData === plaintext 
-                          ? "✅ Decrypted text matches original"
+                          ? "✅ Decrypted text matches original plaintext"
                           : "⚠️ Decrypted text differs from original"}
                       </p>
                     </div>
@@ -654,7 +879,7 @@ export default function LayeredEncryptionPage() {
                 <div className="text-center py-12 text-muted-foreground">
                   <Unlock className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No decrypted data available.</p>
-                  <p className="text-sm mt-2">Decrypt encrypted data to see results here.</p>
+                  <p className="text-sm mt-2">Encrypt and decrypt data to see results here.</p>
                 </div>
               )}
             </CardContent>

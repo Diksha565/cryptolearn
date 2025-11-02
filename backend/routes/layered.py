@@ -1,9 +1,11 @@
 """
 Routes for layered encryption operations
+DEPRECATED: Please use /api/advanced-layered endpoints for the new 5-layer system
+This endpoint is kept for backward compatibility but redirects to advanced system
 """
 
 from flask import Blueprint, request, jsonify
-from services.layered_service import LayeredEncryptionService
+from services.advanced_layered_service import AdvancedLayeredService
 from services.utils import validate_required_fields, create_error_response
 
 layered_bp = Blueprint('layered', __name__, url_prefix='/api/layered')
@@ -11,28 +13,27 @@ layered_bp = Blueprint('layered', __name__, url_prefix='/api/layered')
 
 @layered_bp.route('/generate-keys', methods=['POST'])
 def generate_keys():
-    """Generate keys for all specified algorithms"""
+    """
+    DEPRECATED: Generate keys for layered encryption
+    This now uses the advanced 5-layer system
+    Please use /api/advanced-layered/generate-keys instead
+    """
     try:
         data = request.get_json()
+        use_ecc = data.get('use_ecc', False) if data else False
         
-        if not data or 'algorithms' not in data:
-            return jsonify({'success': False, 'error': 'No algorithms specified'}), 400
+        # Use the new advanced layered service
+        result = AdvancedLayeredService.generate_keys(use_ecc=use_ecc)
         
-        algorithms = data['algorithms']
-        
-        if not isinstance(algorithms, list) or len(algorithms) == 0:
-            return jsonify({'success': False, 'error': 'Invalid algorithms list'}), 400
-        
-        keys = LayeredEncryptionService.generate_all_keys(algorithms)
-        
-        if not keys:
-            return jsonify({'success': False, 'error': 'Key generation failed'}), 500
-        
-        return jsonify({
-            'success': True,
-            'keys': keys,
-            'algorithms': algorithms
-        }), 200
+        if result.get('success'):
+            return jsonify({
+                'success': True,
+                'keys': result['keys'],
+                'warning': 'This endpoint is deprecated. Please use /api/advanced-layered/generate-keys',
+                'new_endpoint': '/api/advanced-layered/generate-keys'
+            }), 200
+        else:
+            return jsonify(result), 500
         
     except Exception as e:
         return jsonify({'success': False, 'error': f'Key generation failed: {str(e)}'}), 500
@@ -41,13 +42,17 @@ def generate_keys():
 @layered_bp.route('/encrypt', methods=['POST'])
 def encrypt_layered():
     """
-    Encrypt text through multiple cryptographic layers
+    DEPRECATED: Encrypt text through cryptographic layers
+    This now uses the advanced 5-layer system (AES→RSA/ECC→Watermark→Signature→Stego)
+    Please use /api/advanced-layered/encrypt instead
     
     Expected JSON:
     {
         "plaintext": "text to encrypt",
-        "layers": ["aes", "rsa", "signature", "ecc"],
-        "keys": {...}  // optional, will generate if not provided
+        "sender_identifier": "Alice",  // optional, defaults to "System"
+        "keys": {...},  // optional, will generate if not provided
+        "use_ecc": false,  // optional, use ECC instead of RSA
+        "cover_text": "..."  // optional, for steganography
     }
     """
     try:
@@ -57,48 +62,37 @@ def encrypt_layered():
             return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
         
         # Validate required fields
-        required_fields = ['plaintext', 'layers']
-        is_valid, error_msg = validate_required_fields(data, required_fields)
-        if not is_valid:
-            return jsonify({'success': False, 'error': error_msg}), 400
+        if 'plaintext' not in data:
+            return jsonify({'success': False, 'error': 'Plaintext is required'}), 400
         
         plaintext = data['plaintext']
-        layers = data['layers']
+        sender_identifier = data.get('sender_identifier', 'System')
         keys = data.get('keys')
+        use_ecc = data.get('use_ecc', False)
+        cover_text = data.get('cover_text')
         
-        # DEBUG: Log what we received
         print(f"\n{'='*60}")
-        print(f"ENCRYPT REQUEST")
+        print(f"DEPRECATED ENDPOINT CALLED: /api/layered/encrypt")
+        print(f"Redirecting to advanced 5-layer system")
         print(f"Plaintext: '{plaintext}' (length: {len(plaintext)})")
-        print(f"Layers: {layers}")
-        print(f"Keys provided: {keys is not None}")
+        print(f"Sender: {sender_identifier}")
         print(f"{'='*60}\n")
         
-        # Validate layers
-        if not isinstance(layers, list) or len(layers) == 0:
-            return jsonify({'success': False, 'error': 'Invalid layers configuration'}), 400
-        
-        # Check if all layers are supported
-        supported = ['rsa', 'signature', 'aes']
-        for layer in layers:
-            if layer not in supported:
-                return jsonify({
-                    'success': False,
-                    'error': f'Unsupported algorithm: {layer}. Supported: {supported}'
-                }), 400
-        
-        # Perform layered encryption
-        result = LayeredEncryptionService.encrypt_layered(plaintext, layers, keys)
-        
-        # DEBUG: Log result
-        if result.get('success'):
-            print(f"Encryption successful! Output length: {len(result['encrypted_data'])}")
-            print(f"Output preview: {result['encrypted_data'][:100]}...\n")
-        else:
-            print(f"Encryption FAILED: {result.get('error')}\n")
+        # Use the new advanced layered service
+        result = AdvancedLayeredService.encrypt_advanced(
+            plaintext=plaintext,
+            sender_identifier=sender_identifier,
+            keys=keys,
+            use_ecc=use_ecc,
+            cover_text=cover_text
+        )
         
         if result.get('success'):
-            return jsonify(result), 200
+            return jsonify({
+                **result,
+                'warning': 'This endpoint is deprecated. Please use /api/advanced-layered/encrypt',
+                'new_endpoint': '/api/advanced-layered/encrypt'
+            }), 200
         else:
             return jsonify(result), 400
         
@@ -112,14 +106,9 @@ def encrypt_layered():
 @layered_bp.route('/decrypt', methods=['POST'])
 def decrypt_layered():
     """
-    Decrypt layered encrypted text
-    
-    Expected JSON:
-    {
-        "encrypted_data": "encrypted text",
-        "layers": ["aes", "rsa", "signature", "ecc"],
-        "keys": {...}  // must include all private keys
-    }
+    DEPRECATED: Decrypt layered encrypted text
+    This now uses the advanced 5-layer system
+    Please use /api/advanced-layered/decrypt instead
     """
     try:
         data = request.get_json()
@@ -127,21 +116,33 @@ def decrypt_layered():
         if not data:
             return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
         
-        # Validate required fields
-        required_fields = ['encrypted_data', 'layers', 'keys']
-        is_valid, error_msg = validate_required_fields(data, required_fields)
-        if not is_valid:
-            return jsonify({'success': False, 'error': error_msg}), 400
+        # Support both old and new parameter names
+        stego_text = data.get('stego_text') or data.get('encrypted_data')
         
-        encrypted_data = data['encrypted_data']
-        layers = data['layers']
-        keys = data['keys']
+        if not stego_text:
+            return jsonify({'success': False, 'error': 'Stego text / encrypted data is required'}), 400
         
-        # Perform layered decryption
-        result = LayeredEncryptionService.decrypt_layered(encrypted_data, layers, keys)
+        keys = data.get('keys')
+        if not keys:
+            return jsonify({'success': False, 'error': 'Keys are required'}), 400
+        
+        # Use the new advanced layered service
+        result = AdvancedLayeredService.decrypt_advanced(
+            stego_text=stego_text,
+            keys=keys,
+            encrypted_aes_key=data.get('encrypted_aes_key', ''),
+            digital_signature=data.get('digital_signature', ''),
+            ciphertext_hash=data.get('ciphertext_hash', ''),
+            aes_iv=data.get('aes_iv', ''),
+            use_ecc=data.get('use_ecc', False)
+        )
         
         if result.get('success'):
-            return jsonify(result), 200
+            return jsonify({
+                **result,
+                'warning': 'This endpoint is deprecated. Please use /api/advanced-layered/decrypt',
+                'new_endpoint': '/api/advanced-layered/decrypt'
+            }), 200
         else:
             return jsonify(result), 400
         
@@ -154,16 +155,22 @@ def get_info():
     """Get information about layered encryption"""
     return jsonify({
         'success': True,
-        'supported_algorithms': ['rsa', 'signature', 'aes'],
-        'recommended_order': ['rsa', 'signature', 'aes'],
-        'encryption_order': 'RSA → Digital Signature → AES',
-        'decryption_order': 'AES → Digital Signature → RSA',
-        'description': 'Simplified multi-layer encryption: RSA encrypts plaintext, signature authenticates, AES encrypts final output',
-        'features': [
-            'Sequential layering: RSA → Digital Signature → AES',
-            'Automatic key generation',
-            'Step-by-step encryption tracking',
-            'Layer-by-layer output display',
-            'Secure decryption chain'
-        ]
+        'status': 'DEPRECATED',
+        'message': 'This endpoint is deprecated. Please use /api/advanced-layered/info',
+        'new_endpoint': '/api/advanced-layered/info',
+        'old_system': {
+            'supported_algorithms': ['rsa', 'signature', 'aes'],
+            'encryption_order': 'RSA → Digital Signature → AES',
+        },
+        'new_system': {
+            'layers': 5,
+            'encryption_order': 'AES-256 → RSA/ECC → Watermark → Signature → Stego',
+            'features': [
+                'AES-256-CBC symmetric encryption',
+                'RSA-2048 or ECC key encryption',
+                'Zero-width character watermarking',
+                'SHA-256 + RSA/ECDSA signature',
+                'Whitespace text steganography'
+            ]
+        }
     }), 200

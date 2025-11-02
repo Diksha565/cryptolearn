@@ -34,31 +34,39 @@ export default function LayeredLandingPage() {
                 </div>
                 <div>
                   <CardTitle className="text-2xl mb-1">Layered Text Encryption</CardTitle>
-                  <p className="text-sm text-muted-foreground">Multi-layer cryptographic system</p>
+                  <p className="text-sm text-muted-foreground">Advanced 5-layer cryptographic system</p>
                 </div>
               </div>
               <CardDescription className="text-base">
-                Secure your text data with multiple layers of encryption using industry-standard algorithms
+                Secure your text data with 5 layers of advanced encryption: AES → Key Encryption → Watermarking → Signature → Steganography
               </CardDescription>
             </CardHeader>
             <CardContent className="relative space-y-6">
               <div className="space-y-3">
                 <h4 className="font-semibold flex items-center gap-2">
                   <Lock className="h-4 w-4 text-purple-600" />
-                  Encryption Layers
+                  Encryption Layers (5-Layer System)
                 </h4>
                 <div className="space-y-2 ml-6">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    <span className="text-sm"><strong>Layer 1:</strong> RSA-2048 Encryption</span>
+                    <span className="text-sm"><strong>Layer 1:</strong> AES-256-CBC Encryption</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-purple-500" />
-                    <span className="text-sm"><strong>Layer 2:</strong> Digital Signature (RSA-SHA256)</span>
+                    <span className="text-sm"><strong>Layer 2:</strong> RSA/ECC Key Encryption</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-green-500" />
-                    <span className="text-sm"><strong>Layer 3:</strong> AES-256 Encryption</span>
+                    <span className="text-sm"><strong>Layer 3:</strong> Zero-Width Watermarking</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-orange-500" />
+                    <span className="text-sm"><strong>Layer 4:</strong> SHA-256 + Digital Signature</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                    <span className="text-sm"><strong>Layer 5:</strong> Whitespace Steganography</span>
                   </div>
                 </div>
               </div>
@@ -66,9 +74,11 @@ export default function LayeredLandingPage() {
               <div className="space-y-2">
                 <h4 className="font-semibold">Features</h4>
                 <ul className="text-sm space-y-1 text-muted-foreground ml-6">
-                  <li>• Defense in depth with multiple encryption layers</li>
-                  <li>• Hybrid cryptography (symmetric + asymmetric)</li>
-                  <li>• Data integrity verification with signatures</li>
+                  <li>• 5-layer defense in depth encryption</li>
+                  <li>• Hybrid cryptography (AES + RSA/ECC)</li>
+                  <li>• Zero-width Unicode watermarking</li>
+                  <li>• Data integrity with SHA-256 + signatures</li>
+                  <li>• Stealth whitespace steganography</li>
                   <li>• Interactive animated walkthrough</li>
                 </ul>
               </div>

@@ -9,6 +9,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +24,7 @@ import {
   Layers,
 } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const topics = [
   { id: "home", name: "Back to Home", href: "/", icon: Home },
@@ -108,6 +110,13 @@ export function AppSidebar() {
           })}
         </SidebarMenu>
       </SidebarContent>
+
+      <SidebarFooter className="p-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">Theme</span>
+          <ThemeToggle />
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }

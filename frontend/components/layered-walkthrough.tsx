@@ -41,51 +41,73 @@ const layeredSteps: LayeredStep[] = [
     icon: FileText,
     color: "bg-gray-500",
     algorithm: "Original Data",
-    details: "This is your sensitive data that will be protected through multiple encryption layers",
+    details: "This is your sensitive data that will be protected through 5 security layers",
   },
   {
     id: "step1",
-    title: "RSA Encryption",
-    description: "Layer 1: Encrypt with RSA-2048 asymmetric encryption",
+    title: "AES Encryption",
+    description: "Layer 1: Encrypt with AES-256-CBC symmetric encryption",
     input: "Hello, this is my secret message!",
-    output: "mK9xVzP2QnE4... (RSA encrypted)",
-    icon: Key,
+    output: "h0AI3VeFMt+ur6wNr+a2... (AES encrypted)",
+    icon: Lock,
     color: "bg-blue-500",
-    algorithm: "RSA-2048",
-    details: "RSA encrypts data using public key cryptography. Data is split into chunks and encrypted with the 2048-bit public key.",
+    algorithm: "AES-256-CBC",
+    details: "AES-256 in CBC mode provides strong symmetric encryption with a random IV (Initialization Vector) for confidentiality.",
   },
   {
     id: "step2",
-    title: "Digital Signature",
-    description: "Layer 2: Sign the encrypted data for authentication",
-    input: "mK9xVzP2QnE4... (RSA encrypted)",
-    output: "mK9xVzP2QnE4... + Signature",
-    icon: Shield,
-    color: "bg-purple-500",
-    algorithm: "RSA-SHA256",
-    details: "Creates a digital signature using RSA-SHA256 to ensure data integrity and authenticity. Signature is stored separately.",
+    title: "Key Encryption",
+    description: "Layer 2: Encrypt AES key with RSA-2048 or ECC",
+    input: "AES Key: 7ae8898458befa8240...",
+    output: "Da69ocqcdI0MPzQ5ofl7... (Encrypted key)",
+    icon: Key,
+    color: "bg-green-500",
+    algorithm: "RSA-2048 / ECC",
+    details: "The AES key is encrypted using RSA-2048 or ECC for secure key distribution. Recipient uses their private key to decrypt.",
   },
   {
     id: "step3",
-    title: "AES Encryption",
-    description: "Layer 3: Final encryption with AES-256-CBC",
-    input: "mK9xVzP2QnE4... (RSA + Signature)",
-    output: "7Ky2Bn8Qm... (Final Ciphertext)",
-    icon: Lock,
-    color: "bg-green-500",
-    algorithm: "AES-256-CBC",
-    details: "AES-256 in CBC mode provides strong symmetric encryption. Uses a random IV (Initialization Vector) for each encryption.",
+    title: "Watermarking",
+    description: "Layer 3: Embed sender identifier using zero-width characters",
+    input: "h0AI3VeFMt+ur6wNr+a2... (AES ciphertext)",
+    output: "h0AI3VeFMt+ur6wNr+a2...​‌​‌​ (Watermarked)",
+    icon: Shield,
+    color: "bg-yellow-500",
+    algorithm: "Zero-Width Unicode",
+    details: "Sender ID is embedded using invisible zero-width Unicode characters (\\u200B and \\u200C) to prove message origin.",
   },
   {
     id: "step4",
-    title: "Decryption Process",
-    description: "Reverse order: AES → Verify Signature → RSA",
-    input: "7Ky2Bn8Qm... (Final Ciphertext)",
+    title: "Digital Signature",
+    description: "Layer 4: Sign hash with RSA/ECDSA for integrity",
+    input: "Watermarked ciphertext hash",
+    output: "dlXpBz2F8K3yp4FqcM41... (Signature)",
+    icon: CheckCircle2,
+    color: "bg-purple-500",
+    algorithm: "SHA-256 + RSA/ECDSA",
+    details: "SHA-256 hashes the watermarked ciphertext, then it's signed with the sender's private key for authentication and integrity.",
+  },
+  {
+    id: "step5",
+    title: "Steganography",
+    description: "Layer 5: Hide encrypted data in innocent-looking text",
+    input: "Watermarked + Signed ciphertext",
+    output: "The natural world offers countless examples...",
+    icon: FileText,
+    color: "bg-pink-500",
+    algorithm: "Whitespace Stego",
+    details: "Encrypted data is hidden using whitespace steganography in cover text. Final output looks like normal text but contains hidden encrypted message.",
+  },
+  {
+    id: "step6",
+    title: "Decryption",
+    description: "Reverse order: Extract → Verify → Decrypt",
+    input: "The natural world offers countless examples...",
     output: "Hello, this is my secret message!",
     icon: CheckCircle2,
     color: "bg-emerald-500",
-    algorithm: "Reverse Decryption",
-    details: "Decryption happens in reverse: AES decrypts first, signature is verified, then RSA decrypts to recover the original message.",
+    algorithm: "5-Layer Reverse",
+    details: "Decryption reverses all layers: Extract from stego → Verify watermark → Verify signature → Decrypt key → Decrypt AES → Original message.",
   },
 ];
 
@@ -137,9 +159,9 @@ export function LayeredWalkthrough() {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Layered Encryption Walkthrough</CardTitle>
+          <CardTitle>Advanced 5-Layer Encryption Walkthrough</CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Interactive visualization of multi-layer encryption: RSA → Digital Signature → AES
+            Interactive visualization: AES → Key Encryption → Watermarking → Signature → Steganography
           </p>
         </div>
         <div className="flex gap-2">
@@ -544,11 +566,11 @@ export function LayeredWalkthrough() {
               <Lock className="h-20 w-20 mx-auto text-primary mb-6" />
             </motion.div>
             <h3 className="text-2xl font-bold mb-3">
-              Ready to Explore Layered Encryption?
+              Ready to Explore 5-Layer Encryption?
             </h3>
             <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
-              Click "Start" to begin an interactive journey through multi-layer encryption.
-              Watch how your data is protected through RSA, Digital Signature, and AES encryption.
+              Click "Start" to begin an interactive journey through the advanced 5-layer encryption system.
+              Watch how your data is protected through AES, Key Encryption, Watermarking, Digital Signature, and Steganography.
             </p>
             <motion.div
               whileHover={{ scale: 1.05 }}
@@ -560,7 +582,7 @@ export function LayeredWalkthrough() {
                 className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8"
               >
                 <Play className="h-5 w-5 mr-2" />
-                Start Layered Encryption Walkthrough
+                Start 5-Layer Encryption Walkthrough
               </Button>
             </motion.div>
           </motion.div>

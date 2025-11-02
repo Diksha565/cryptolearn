@@ -17,6 +17,7 @@ from routes.watermark import watermark_bp
 from routes.layered import layered_bp
 from routes.layered_image import layered_image_bp
 from routes.auth import auth_bp
+from routes.advanced_layered import advanced_layered_bp
 
 def create_app():
     """Create and configure the Flask application"""
@@ -44,6 +45,7 @@ def create_app():
     app.register_blueprint(layered_bp)
     app.register_blueprint(layered_image_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(advanced_layered_bp)
     
     # Root endpoint
     @app.route('/')
@@ -62,6 +64,7 @@ def create_app():
                 "Watermarking": "/api/watermark",
                 "Layered Encryption": "/api/layered",
                 "Layered Image": "/api/layered-image",
+                "Advanced Layered (5-Layer)": "/api/advanced-layered",
                 "Authentication": "/api/auth"
             },
             "endpoints": {
